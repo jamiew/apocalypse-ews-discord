@@ -1,4 +1,4 @@
-import { ChannelType } from "discord.js";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
 import { describe, expect, it } from "vitest";
 import {
 	classifyDmText,
@@ -82,11 +82,19 @@ describe("commandDefinitions", () => {
 		}
 	});
 
-	it("requires ManageGuild for subscribe/unsubscribe and Administrator for dev-fire", () => {
+	it("gates subscribe/unsubscribe behind ManageGuild and dev-fire behind Administrator", () => {
 		const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
-		// Bit values per discord-api-types: ManageGuild=0x20, Administrator=0x8
-		expect(byName.subscribe?.default_member_permissions).toBeTruthy();
-		expect(byName.unsubscribe?.default_member_permissions).toBeTruthy();
-		expect(byName["dev-fire"]?.default_member_permissions).toBeTruthy();
+		expect(byName.subscribe?.default_member_permissions).toBe(
+			String(PermissionFlagsBits.ManageGuild),
+		);
+		expect(byName.unsubscribe?.default_member_permissions).toBe(
+			String(PermissionFlagsBits.ManageGuild),
+		);
+		expect(byName["dev-fire"]?.default_member_permissions).toBe(
+			String(PermissionFlagsBits.Administrator),
+		);
+		// status and help carry no permission gate.
+		expect(byName.status?.default_member_permissions).toBeUndefined();
+		expect(byName.help?.default_member_permissions).toBeUndefined();
 	});
 });

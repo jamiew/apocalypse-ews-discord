@@ -2,11 +2,13 @@ import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
+import type { Snowflake } from "discord.js";
 import type { LastAlert } from "./copy.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("db");
 
+/** A subscriber row keys on a Discord channel id (guild_channel) or user id (dm). */
 export type SubscriberKind = "guild_channel" | "dm";
 export type SubscriberStatus = "active" | "unsubscribed";
 
@@ -33,34 +35,39 @@ export type EventKind =
 	| "reminder_fail"
 	| "error";
 
+/** A row in the events table. Timestamps are ISO-8601 with millisecond precision. */
 export interface EventRecord {
 	id: number;
 	ts: string;
 	kind: EventKind;
-	guild_id: string | null;
-	channel_id: string | null;
-	user_id: string | null;
+	guild_id: Snowflake | null;
+	channel_id: Snowflake | null;
+	user_id: Snowflake | null;
 	payload: string | null;
 }
 
+/** Args for {@link DB.recordEvent}. Payload is JSON-encoded with Error-aware shaping. */
 export interface RecordEventInput {
 	kind: EventKind;
-	guildId?: string | null;
-	channelId?: string | null;
-	userId?: string | null;
+	guildId?: Snowflake | null;
+	channelId?: Snowflake | null;
+	userId?: Snowflake | null;
 	payload?: Record<string, unknown> | null;
 }
 
+/** A subscriber: one Discord channel or DM target receiving alerts. */
 export interface Subscriber {
 	id: number;
 	kind: SubscriberKind;
-	discord_id: string;
-	guild_id: string | null;
+	/** Channel id when kind=guild_channel, user id when kind=dm. */
+	discord_id: Snowflake;
+	guild_id: Snowflake | null;
 	status: SubscriberStatus;
 	subscribed_at: string;
 	last_reminded: string | null;
 }
 
+/** A row from seen_alerts — every RSS item the poller has ingested. */
 export interface SeenAlert {
 	guid: string;
 	title: string | null;
@@ -98,8 +105,8 @@ export class DB {
 
 	upsertSubscribed(args: {
 		kind: SubscriberKind;
-		discordId: string;
-		guildId: string | null;
+		discordId: Snowflake;
+		guildId: Snowflake | null;
 		now: string;
 	}): { created: boolean; reactivated: boolean } {
 		const existing = this.findSubscriber(args.kind, args.discordId);
@@ -125,7 +132,7 @@ export class DB {
 		return { created: false, reactivated: true };
 	}
 
-	markUnsubscribed(kind: SubscriberKind, discordId: string): boolean {
+	markUnsubscribed(kind: SubscriberKind, discordId: Snowflake): boolean {
 		const result = this.db
 			.prepare(
 				`UPDATE subscribers SET status = 'unsubscribed'
@@ -135,9 +142,9 @@ export class DB {
 		return result.changes > 0;
 	}
 
-	findSubscriber(kind: SubscriberKind, discordId: string): Subscriber | undefined {
+	findSubscriber(kind: SubscriberKind, discordId: Snowflake): Subscriber | undefined {
 		return this.db
-			.prepare<[SubscriberKind, string], Subscriber>(
+			.prepare<[SubscriberKind, Snowflake], Subscriber>(
 				`SELECT * FROM subscribers WHERE kind = ? AND discord_id = ?`,
 			)
 			.get(kind, discordId);

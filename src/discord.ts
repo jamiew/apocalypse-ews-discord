@@ -238,11 +238,10 @@ async function cmdUnsubscribe(
 async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps): Promise<void> {
   if (!interaction.channelId) return;
   const sub = deps.db.findSubscriber("guild_channel", interaction.channelId);
-  const last = deps.db.lastSeenAlert();
   await interaction.reply({
     content: statusLine({
       subscribed: sub?.status === "active",
-      lastAlert: last?.title ? { title: last.title, pubDate: last.pub_date ?? "" } : null,
+      lastAlert: deps.db.lastAlertForDisplay(),
     }),
     ephemeral: true,
   });
@@ -297,11 +296,10 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
   }
 
   // Ping/pong for any other input.
-  const last = deps.db.lastSeenAlert();
   await message.reply(
     pingPongLine({
       subscribed: sub.status === "active",
-      lastAlert: last?.title ? { title: last.title, pubDate: last.pub_date ?? "" } : null,
+      lastAlert: deps.db.lastAlertForDisplay(),
     }),
   );
 }

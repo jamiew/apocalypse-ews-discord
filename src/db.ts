@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
+import type { LastAlert } from "./copy.js";
 
 export type SubscriberKind = "guild_channel" | "dm";
 export type SubscriberStatus = "active" | "unsubscribed";
@@ -149,6 +150,12 @@ export class DB {
     return this.db
       .prepare<[], SeenAlert>(`SELECT * FROM seen_alerts ORDER BY ingested_at DESC LIMIT 1`)
       .get();
+  }
+
+  lastAlertForDisplay(): LastAlert {
+    const row = this.lastSeenAlert();
+    if (!row?.title) return null;
+    return { title: row.title, pubDate: row.pub_date ?? "" };
   }
 
   close(): void {

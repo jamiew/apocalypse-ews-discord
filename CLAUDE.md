@@ -27,6 +27,8 @@ Two tables:
 - `subscribers` — `kind ∈ {guild_channel, dm}`, `discord_id` (channel id or user id), status, `subscribed_at`, `last_reminded`. Unique on `(kind, discord_id)`.
 - `seen_alerts` — keyed by RSS `<guid>` (or a hash fallback when guid is missing).
 
+The canonical projection from a `SeenAlert` row to the display-time `LastAlert` shape is `db.lastAlertForDisplay()`. If you find yourself reconstructing `{ title, pubDate }` from a `SeenAlert` in a caller, use that instead.
+
 ## Tone of voice (rules for editing copy.ts)
 
 The website and Telegram channel are **deadpan, technical, no emojis, no exclamation points, short declarative sentences.** Wryness comes from the framing — calling tracked-jet-anomaly monitoring an "apocalypse early warning system" — never from the prose.
@@ -37,6 +39,8 @@ Source phrases worth preserving:
 - *"Automatic updates about unusual private jet activity."*
 
 Don't add 🚨, ⚠️, "🔴 ALERT", or anything chipper. If a string would feel out of place on the source website, it's wrong.
+
+`copy.test.ts` has a "tone guard" suite that fails on exclamation points or emoji in user-facing strings, and on missing source-URL/uninstall hints in the welcome. Don't disable those tests; if you genuinely need to change the rule, change the test alongside the code.
 
 ## Out of scope (don't add without being asked)
 

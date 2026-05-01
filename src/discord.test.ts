@@ -1,4 +1,4 @@
-import { ChannelType, PermissionFlagsBits } from "discord.js";
+import { ChannelType, InteractionContextType, PermissionFlagsBits } from "discord.js";
 import { describe, expect, it } from "vitest";
 import {
 	classifyDmText,
@@ -75,10 +75,9 @@ describe("commandDefinitions", () => {
 		expect(names).toEqual(["dev-fire", "help", "status", "subscribe", "unsubscribe"]);
 	});
 
-	it("disables DMs on every command (DMs use plain-message keywords)", () => {
+	it("restricts every command to guild contexts (DMs use plain-message keywords)", () => {
 		for (const c of commandDefinitions) {
-			// dm_permission false in the registered payload
-			expect(c.dm_permission).toBe(false);
+			expect(c.contexts).toEqual([InteractionContextType.Guild]);
 		}
 	});
 

@@ -5,6 +5,7 @@ import {
 	Events,
 	GatewayIntentBits,
 	type Guild,
+	InteractionContextType,
 	type Message,
 	Partials,
 	PermissionFlagsBits,
@@ -77,6 +78,9 @@ export function pickWelcomeChannelFrom(
 	return sendable[0] ?? null;
 }
 
+// All commands are guild-only; DMs use plain message keywords (see classifyDmText).
+const guildOnly = (): InteractionContextType[] => [InteractionContextType.Guild];
+
 export const commandDefinitions = [
 	new SlashCommandBuilder()
 		.setName("subscribe")
@@ -88,25 +92,25 @@ export const commandDefinitions = [
 				.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
 		)
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setDMPermission(false),
+		.setContexts(guildOnly()),
 	new SlashCommandBuilder()
 		.setName("unsubscribe")
 		.setDescription("Stop receiving alerts in this channel.")
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setDMPermission(false),
+		.setContexts(guildOnly()),
 	new SlashCommandBuilder()
 		.setName("status")
 		.setDescription("Show subscription state and the last alert on record.")
-		.setDMPermission(false),
+		.setContexts(guildOnly()),
 	new SlashCommandBuilder()
 		.setName("help")
 		.setDescription("How to use the Apocalypse EWS bot.")
-		.setDMPermission(false),
+		.setContexts(guildOnly()),
 	new SlashCommandBuilder()
 		.setName("dev-fire")
 		.setDescription("Admin only — synthesize an alert event for testing.")
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-		.setDMPermission(false),
+		.setContexts(guildOnly()),
 ].map((c) => c.toJSON());
 
 /**

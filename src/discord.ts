@@ -147,23 +147,19 @@ export function createClient(deps: BotDeps): Client {
 async function onGuildCreate(guild: Guild): Promise<void> {
   const me = guild.members.me;
   if (!me) return;
-  const toCandidate = (
-    c:
-      | NonNullable<Guild["systemChannel"]>
-      | (typeof guild.channels.cache extends Map<string, infer V> ? V : never),
-  ): WelcomeChannelCandidate => ({
+  const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
     id: c.id,
     type: c.type,
     position: "position" in c ? (c.position ?? 0) : 0,
     canSend: c.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages) === true,
-  });
-  const sysCandidate = guild.systemChannel ? toCandidate(guild.systemChannel) : null;
-  const candidates = guild.channels.cache.map(toCandidate);
+  }));
+  const sys = guild.systemChannel;
+  const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
   const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
   if (!picked) return;
-  const channel = guild.channels.cache.get(picked.id) ?? guild.systemChannel;
-  if (!channel || !("send" in channel) || typeof channel.send !== "function") return;
-  await (channel as { send: (s: string) => Promise<unknown> }).send(GUILD_WELCOME);
+  const channel = guild.channels.cache.get(picked.id);
+  if (!isSendable(channel)) return;
+  await channel.send(GUILD_WELCOME);
 }
 
 async function handleCommand(
@@ -331,12 +327,14 @@ export async function fanOutAlert(
   return { sent, failed };
 }
 
-async function sendToSubscriber(client: Client, sub: Subscriber, body: string): Promise<void> {
+export async function sendToSubscriber(
+  client: Client,
+  sub: Subscriber,
+  body: string,
+): Promise<void> {
   if (sub.kind === "guild_channel") {
     const channel = await client.channels.fetch(sub.discord_id);
-    if (!channel || !isSendable(channel)) {
-      throw new Error("channel not sendable");
-    }
+    if (!isSendable(channel)) throw new Error("channel not sendable");
     await channel.send(body);
     return;
   }

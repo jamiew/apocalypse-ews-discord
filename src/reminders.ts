@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { ANNUAL_REMINDER } from "./copy.js";
-import type { DB, Subscriber } from "./db.js";
+import type { DB } from "./db.js";
+import { sendToSubscriber } from "./discord.js";
 
 export async function sendDueReminders(args: {
   db: DB;
@@ -13,7 +14,7 @@ export async function sendDueReminders(args: {
   let failed = 0;
   for (const sub of due) {
     try {
-      await sendReminder(args.client, sub);
+      await sendToSubscriber(args.client, sub, ANNUAL_REMINDER);
       args.db.stampReminded(sub.id, now.toISOString());
       sent++;
     } catch (err) {
@@ -22,17 +23,4 @@ export async function sendDueReminders(args: {
     }
   }
   return { sent, failed };
-}
-
-async function sendReminder(client: Client, sub: Subscriber): Promise<void> {
-  if (sub.kind === "dm") {
-    const user = await client.users.fetch(sub.discord_id);
-    await user.send(ANNUAL_REMINDER);
-    return;
-  }
-  const channel = await client.channels.fetch(sub.discord_id);
-  if (!channel || !("send" in channel) || typeof channel.send !== "function") {
-    throw new Error("channel not sendable");
-  }
-  await (channel as { send: (s: string) => Promise<unknown> }).send(ANNUAL_REMINDER);
 }

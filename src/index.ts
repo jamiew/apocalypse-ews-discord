@@ -16,6 +16,7 @@ async function main() {
 
 	await client.login(env.DISCORD_TOKEN);
 	log.info("started", { rss: env.EWS_RSS_URL, poll: env.POLL_CRON });
+	db.recordEvent({ kind: "startup", payload: { rss: env.EWS_RSS_URL } });
 
 	const pollLog = childLogger("poller");
 	const pollTask = cron.schedule(env.POLL_CRON, async () => {
@@ -46,6 +47,7 @@ async function main() {
 
 	const shutdown = async (signal: string) => {
 		log.info("shutting down", { signal });
+		db.recordEvent({ kind: "shutdown", payload: { signal } });
 		pollTask.stop();
 		reminderTask.stop();
 		await client.destroy().catch(() => {});

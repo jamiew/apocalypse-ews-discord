@@ -197,6 +197,57 @@ describe("DB", () => {
 		});
 	});
 
+	describe("events", () => {
+		it("records and retrieves events with payload JSON-encoded", () => {
+			db.recordEvent({
+				kind: "subscribe",
+				userId: "u1",
+				payload: { kind: "dm", reactivated: false },
+			});
+			db.recordEvent({
+				kind: "alert_seen",
+				payload: { guid: "g1", title: "Alert." },
+			});
+			const recent = db.recentEvents();
+			expect(recent.map((r) => r.kind)).toEqual(["alert_seen", "subscribe"]);
+			const subscribe = recent.find((r) => r.kind === "subscribe");
+			assert(subscribe);
+			expect(subscribe.user_id).toBe("u1");
+			expect(subscribe.payload).toBe(JSON.stringify({ kind: "dm", reactivated: false }));
+		});
+
+		it("countEvents filters by kind and optional since timestamp", () => {
+			db.recordEvent({ kind: "command" });
+			db.recordEvent({ kind: "command" });
+			db.recordEvent({ kind: "subscribe", userId: "u1" });
+			expect(db.countEvents("command")).toBe(2);
+			expect(db.countEvents("subscribe")).toBe(1);
+			expect(db.countEvents("dm_in")).toBe(0);
+
+			const future = new Date(Date.now() + 60_000).toISOString();
+			expect(db.countEvents("command", future)).toBe(0);
+		});
+
+		it("serializes Error objects in payload via the replacer", () => {
+			db.recordEvent({
+				kind: "alert_dispatch_fail",
+				payload: { err: new Error("nope") },
+			});
+			const [row] = db.recentEvents(1);
+			assert(row?.payload);
+			expect(row.payload).toContain("nope");
+			expect(row.payload).toContain('"name":"Error"');
+		});
+
+		it("recordEvent failures do not throw to the caller", () => {
+			db.close();
+			// after close, the underlying prepare/run will throw; recordEvent must swallow it
+			expect(() => db.recordEvent({ kind: "error" })).not.toThrow();
+			// reopen for the rest of the test lifecycle
+			db = new DB(":memory:");
+		});
+	});
+
 	describe("lastAlertForDisplay", () => {
 		it("returns null when there is no alert", () => {
 			expect(db.lastAlertForDisplay()).toBeNull();

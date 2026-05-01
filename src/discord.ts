@@ -128,15 +128,35 @@ export function createClient(deps: BotDeps): Client {
 	});
 
 	client.on(Events.GuildCreate, (guild) => {
-		void onGuildCreate(guild).catch((err) =>
+		deps.db.recordEvent({
+			kind: "guild_create",
+			guildId: guild.id,
+			payload: { name: guild.name, memberCount: guild.memberCount },
+		});
+		void onGuildCreate(guild, deps).catch((err) =>
 			log.error("guildCreate failed", { err, guildId: guild.id }),
 		);
+	});
+
+	client.on(Events.GuildDelete, (guild) => {
+		deps.db.recordEvent({
+			kind: "guild_delete",
+			guildId: guild.id,
+			payload: { name: guild.name },
+		});
 	});
 
 	client.on(Events.InteractionCreate, (interaction) => {
 		if (!interaction.isChatInputCommand()) return;
 		void handleCommand(interaction, deps, client).catch((err) => {
 			log.error("command failed", { err, command: interaction.commandName });
+			deps.db.recordEvent({
+				kind: "error",
+				guildId: interaction.guildId,
+				channelId: interaction.channelId,
+				userId: interaction.user.id,
+				payload: { op: "command", command: interaction.commandName, err },
+			});
 		});
 	});
 
@@ -151,7 +171,7 @@ export function createClient(deps: BotDeps): Client {
 	return client;
 }
 
-async function onGuildCreate(guild: Guild): Promise<void> {
+async function onGuildCreate(guild: Guild, deps: BotDeps): Promise<void> {
 	const me = guild.members.me;
 	if (!me) return;
 	const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
@@ -167,6 +187,11 @@ async function onGuildCreate(guild: Guild): Promise<void> {
 	const channel = guild.channels.cache.get(picked.id);
 	if (!isSendable(channel)) return;
 	await channel.send(GUILD_WELCOME);
+	deps.db.recordEvent({
+		kind: "guild_welcome_sent",
+		guildId: guild.id,
+		channelId: picked.id,
+	});
 }
 
 async function handleCommand(
@@ -174,6 +199,16 @@ async function handleCommand(
 	deps: BotDeps,
 	client: Client,
 ): Promise<void> {
+	deps.db.recordEvent({
+		kind: "command",
+		guildId: interaction.guildId,
+		channelId: interaction.channelId,
+		userId: interaction.user.id,
+		payload: {
+			name: interaction.commandName,
+			options: interaction.options.data.map((o) => ({ name: o.name, value: o.value })),
+		},
+	});
 	switch (interaction.commandName) {
 		case "subscribe":
 			return cmdSubscribe(interaction, deps);
@@ -221,6 +256,13 @@ async function cmdSubscribe(
 		});
 		return;
 	}
+	deps.db.recordEvent({
+		kind: "subscribe",
+		guildId: interaction.guildId,
+		channelId: target.id,
+		userId: interaction.user.id,
+		payload: { kind: "guild_channel", reactivated: result.reactivated },
+	});
 	await interaction.reply({ content: GUILD_SUBSCRIBE_OK });
 }
 
@@ -236,6 +278,15 @@ async function cmdUnsubscribe(
 		return;
 	}
 	const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
+	if (removed) {
+		deps.db.recordEvent({
+			kind: "unsubscribe",
+			guildId: interaction.guildId,
+			channelId: interaction.channelId,
+			userId: interaction.user.id,
+			payload: { kind: "guild_channel" },
+		});
+	}
 	await interaction.reply({
 		content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
 		ephemeral: !removed,
@@ -275,6 +326,17 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 	const userId = message.author.id;
 	const intent = classifyDmText(message.content);
 
+	deps.db.recordEvent({
+		kind: "dm_in",
+		userId,
+		payload: { content: message.content, intent },
+	});
+
+	const reply = async (content: string) => {
+		await message.reply(content);
+		deps.db.recordEvent({ kind: "dm_out", userId, payload: { content } });
+	};
+
 	if (intent === "subscribe") {
 		const result = deps.db.upsertSubscribed({
 			kind: "dm",
@@ -282,15 +344,24 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 			guildId: null,
 			now: new Date().toISOString(),
 		});
-		await message.reply(
-			result.created || result.reactivated ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED,
-		);
+		const fresh = result.created || result.reactivated;
+		if (fresh) {
+			deps.db.recordEvent({
+				kind: "subscribe",
+				userId,
+				payload: { kind: "dm", reactivated: result.reactivated },
+			});
+		}
+		await reply(fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED);
 		return;
 	}
 
 	if (intent === "unsubscribe") {
 		const removed = deps.db.markUnsubscribed("dm", userId);
-		await message.reply(removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED);
+		if (removed) {
+			deps.db.recordEvent({ kind: "unsubscribe", userId, payload: { kind: "dm" } });
+		}
+		await reply(removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED);
 		return;
 	}
 
@@ -298,12 +369,12 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 
 	// First-contact prompt for never-subscribed users.
 	if (!sub) {
-		await message.reply(DM_OPT_IN_PROMPT);
+		await reply(DM_OPT_IN_PROMPT);
 		return;
 	}
 
 	// Ping/pong for any other input.
-	await message.reply(
+	await reply(
 		pingPongLine({
 			subscribed: sub.status === "active",
 			lastAlert: deps.db.lastAlertForDisplay(),
@@ -314,19 +385,34 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 export async function fanOutAlert(
 	client: Client,
 	deps: BotDeps,
-	alert: AlertItem,
+	alert: AlertItem & { guid?: string },
 ): Promise<{ sent: number; failed: number }> {
 	const subs = deps.db.listActive();
 	let sent = 0;
 	let failed = 0;
 	const body = alertPayload(alert);
 	for (const sub of subs) {
+		const eventBase = {
+			guildId: sub.guild_id,
+			channelId: sub.kind === "guild_channel" ? sub.discord_id : null,
+			userId: sub.kind === "dm" ? sub.discord_id : null,
+		};
 		try {
 			await sendToSubscriber(client, sub, body);
 			sent++;
+			deps.db.recordEvent({
+				kind: "alert_dispatch_ok",
+				...eventBase,
+				payload: { guid: alert.guid, kind: sub.kind },
+			});
 		} catch (err) {
 			failed++;
 			log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
+			deps.db.recordEvent({
+				kind: "alert_dispatch_fail",
+				...eventBase,
+				payload: { guid: alert.guid, kind: sub.kind, err },
+			});
 		}
 	}
 	return { sent, failed };

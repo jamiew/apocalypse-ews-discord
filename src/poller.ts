@@ -47,6 +47,10 @@ export async function pollOnce(args: {
 			link: item.link,
 			pub_date: item.pubDate,
 		});
+		args.db.recordEvent({
+			kind: "alert_seen",
+			payload: { guid: item.guid, title: item.title, link: item.link, pubDate: item.pubDate },
+		});
 		fresh.push(item);
 		await args.onNewAlert(item);
 	}

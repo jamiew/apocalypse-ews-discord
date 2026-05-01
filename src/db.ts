@@ -3,6 +3,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import type { LastAlert } from "./copy.js";
+import { childLogger } from "./log.js";
+
+const log = childLogger("db");
 
 export type SubscriberKind = "guild_channel" | "dm";
 export type SubscriberStatus = "active" | "unsubscribed";
@@ -206,23 +209,27 @@ export class DB {
 	}
 
 	/**
-	 * Append a row to the durable event log. Throws are swallowed by the
-	 * caller's try/catch — recording an event must never crash a request path.
+	 * Append a row to the durable event log. Failures are swallowed and logged
+	 * — recording an event must never crash a request path.
 	 */
 	recordEvent(input: RecordEventInput): void {
-		const payload = input.payload == null ? null : JSON.stringify(input.payload, errorReplacer);
-		this.db
-			.prepare<[EventKind, string | null, string | null, string | null, string | null]>(
-				`INSERT INTO events (kind, guild_id, channel_id, user_id, payload)
-         VALUES (?, ?, ?, ?, ?)`,
-			)
-			.run(
-				input.kind,
-				input.guildId ?? null,
-				input.channelId ?? null,
-				input.userId ?? null,
-				payload,
-			);
+		try {
+			const payload = input.payload == null ? null : JSON.stringify(input.payload, errorReplacer);
+			this.db
+				.prepare<[EventKind, string | null, string | null, string | null, string | null]>(
+					`INSERT INTO events (kind, guild_id, channel_id, user_id, payload)
+           VALUES (?, ?, ?, ?, ?)`,
+				)
+				.run(
+					input.kind,
+					input.guildId ?? null,
+					input.channelId ?? null,
+					input.userId ?? null,
+					payload,
+				);
+		} catch (err) {
+			log.error("recordEvent failed", { err, kind: input.kind });
+		}
 	}
 
 	/** Recent events, newest first. Useful for spot-checking from a console. */

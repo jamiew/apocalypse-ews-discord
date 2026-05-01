@@ -2,6 +2,9 @@ import type { Client } from "discord.js";
 import { ANNUAL_REMINDER } from "./copy.js";
 import type { DB } from "./db.js";
 import { sendToSubscriber } from "./discord.js";
+import { childLogger } from "./log.js";
+
+const log = childLogger("reminders");
 
 export async function sendDueReminders(args: {
   db: DB;
@@ -19,7 +22,7 @@ export async function sendDueReminders(args: {
       sent++;
     } catch (err) {
       failed++;
-      console.error(`reminder failed: kind=${sub.kind} id=${sub.discord_id}`, err);
+      log.error({ err, kind: sub.kind, address: sub.discord_id }, "reminder failed");
     }
   }
   return { sent, failed };

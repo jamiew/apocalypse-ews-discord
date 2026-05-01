@@ -2,8 +2,11 @@ import cron from "node-cron";
 import { DB } from "./db.js";
 import { createClient, fanOutAlert } from "./discord.js";
 import { loadEnv } from "./env.js";
+import { childLogger } from "./log.js";
 import { pollOnce } from "./poller.js";
 import { sendDueReminders } from "./reminders.js";
+
+const log = childLogger("boot");
 
 async function main() {
   const env = loadEnv();
@@ -12,8 +15,9 @@ async function main() {
   const client = createClient(deps);
 
   await client.login(env.DISCORD_TOKEN);
+  log.info({ rss: env.EWS_RSS_URL, poll: env.POLL_CRON }, "started");
 
-  // RSS poll → fan out new items.
+  const pollLog = childLogger("poller");
   const pollTask = cron.schedule(env.POLL_CRON, async () => {
     try {
       const fresh = await pollOnce({
@@ -21,42 +25,38 @@ async function main() {
         url: env.EWS_RSS_URL,
         onNewAlert: async (alert) => {
           const result = await fanOutAlert(client, deps, alert);
-          console.log(`alert ${alert.guid}: sent=${result.sent} failed=${result.failed}`);
+          pollLog.info({ guid: alert.guid, ...result }, "alert dispatched");
         },
       });
-      if (fresh.length === 0) {
-        console.log("poll: no new items");
-      }
+      if (fresh.length === 0) pollLog.debug("poll: no new items");
     } catch (err) {
-      console.error("poll error", err);
+      pollLog.error({ err }, "poll error");
     }
   });
 
-  // Daily annual-reminder sweep.
+  const reminderLog = childLogger("reminders");
   const reminderTask = cron.schedule(env.REMINDER_CRON, async () => {
     try {
       const result = await sendDueReminders({ db, client });
-      if (result.sent || result.failed) {
-        console.log(`reminders: sent=${result.sent} failed=${result.failed}`);
-      }
+      if (result.sent || result.failed) reminderLog.info(result, "reminder sweep");
     } catch (err) {
-      console.error("reminder error", err);
+      reminderLog.error({ err }, "reminder error");
     }
   });
 
-  const shutdown = (signal: string) => {
-    console.log(`received ${signal}, shutting down`);
+  const shutdown = async (signal: string) => {
+    log.info({ signal }, "shutting down");
     pollTask.stop();
     reminderTask.stop();
-    client.destroy().catch(() => {});
+    await client.destroy().catch(() => {});
     db.close();
     process.exit(0);
   };
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
 main().catch((err) => {
-  console.error("fatal", err);
+  childLogger("boot").fatal({ err }, "fatal");
   process.exit(1);
 });

@@ -8,6 +8,8 @@ const schema = z.object({
   EWS_RSS_URL: z.url().default("https://ews.kylemcdonald.net/rss.xml"),
   POLL_CRON: z.string().default("*/30 * * * *"),
   REMINDER_CRON: z.string().default("0 13 * * *"),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
 
 export type Env = z.infer<typeof schema>;

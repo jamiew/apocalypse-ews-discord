@@ -116,6 +116,56 @@ describe("DB", () => {
     });
   });
 
+  describe("markUnsubscribed", () => {
+    it("returns false when the row doesn't exist", () => {
+      expect(db.markUnsubscribed("dm", "ghost")).toBe(false);
+    });
+
+    it("returns false on a second call (already unsubscribed)", () => {
+      db.upsertSubscribed({
+        kind: "dm",
+        discordId: "u1",
+        guildId: null,
+        now: "2026-04-30T00:00:00.000Z",
+      });
+      expect(db.markUnsubscribed("dm", "u1")).toBe(true);
+      expect(db.markUnsubscribed("dm", "u1")).toBe(false);
+    });
+  });
+
+  describe("listActive", () => {
+    it("filters by kind when given and excludes unsubscribed", () => {
+      db.upsertSubscribed({
+        kind: "dm",
+        discordId: "u1",
+        guildId: null,
+        now: "2026-04-30T00:00:00.000Z",
+      });
+      db.upsertSubscribed({
+        kind: "guild_channel",
+        discordId: "c1",
+        guildId: "g1",
+        now: "2026-04-30T00:00:00.000Z",
+      });
+      db.upsertSubscribed({
+        kind: "dm",
+        discordId: "gone",
+        guildId: null,
+        now: "2026-04-30T00:00:00.000Z",
+      });
+      db.markUnsubscribed("dm", "gone");
+
+      expect(db.listActive("dm").map((s) => s.discord_id)).toEqual(["u1"]);
+      expect(db.listActive("guild_channel").map((s) => s.discord_id)).toEqual(["c1"]);
+      expect(
+        db
+          .listActive()
+          .map((s) => s.discord_id)
+          .sort(),
+      ).toEqual(["c1", "u1"]);
+    });
+  });
+
   describe("seen_alerts", () => {
     it("hasSeenAlert reflects insertion", () => {
       expect(db.hasSeenAlert("g1")).toBe(false);
@@ -129,6 +179,37 @@ describe("DB", () => {
       const last = db.lastSeenAlert();
       assert(last);
       expect(last.title).toBe("first");
+    });
+
+    it("recordSeenAlert defaults ingested_at to now when omitted", () => {
+      const before = Date.now();
+      db.recordSeenAlert({ guid: "g1", title: "t", link: "l", pub_date: "p" });
+      const after = Date.now();
+      const last = db.lastSeenAlert();
+      assert(last);
+      const ingestedMs = Date.parse(last.ingested_at);
+      expect(ingestedMs).toBeGreaterThanOrEqual(before);
+      expect(ingestedMs).toBeLessThanOrEqual(after);
+    });
+
+    it("lastSeenAlert returns undefined when empty", () => {
+      expect(db.lastSeenAlert()).toBeUndefined();
+    });
+  });
+
+  describe("lastAlertForDisplay", () => {
+    it("returns null when there is no alert", () => {
+      expect(db.lastAlertForDisplay()).toBeNull();
+    });
+
+    it("returns null when the row has no title", () => {
+      db.recordSeenAlert({ guid: "g1", title: null, link: null, pub_date: null });
+      expect(db.lastAlertForDisplay()).toBeNull();
+    });
+
+    it("projects title and pubDate (defaulting empty pub_date to '')", () => {
+      db.recordSeenAlert({ guid: "g1", title: "Alert.", link: "l", pub_date: null });
+      expect(db.lastAlertForDisplay()).toEqual({ title: "Alert.", pubDate: "" });
     });
   });
 });

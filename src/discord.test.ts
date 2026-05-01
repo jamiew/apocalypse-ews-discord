@@ -1,6 +1,11 @@
 import { ChannelType } from "discord.js";
 import { describe, expect, it } from "vitest";
-import { classifyDmText, pickWelcomeChannelFrom, type WelcomeChannelCandidate } from "./discord.js";
+import {
+  classifyDmText,
+  commandDefinitions,
+  pickWelcomeChannelFrom,
+  type WelcomeChannelCandidate,
+} from "./discord.js";
 
 describe("classifyDmText", () => {
   it.each([
@@ -61,5 +66,27 @@ describe("pickWelcomeChannelFrom", () => {
   it("returns null when nothing is sendable", () => {
     const channels = [text({ id: "x", canSend: false })];
     expect(pickWelcomeChannelFrom(null, channels)).toBeNull();
+  });
+});
+
+describe("commandDefinitions", () => {
+  it("registers exactly the expected slash commands", () => {
+    const names = commandDefinitions.map((c) => c.name).sort();
+    expect(names).toEqual(["dev-fire", "help", "status", "subscribe", "unsubscribe"]);
+  });
+
+  it("disables DMs on every command (DMs use plain-message keywords)", () => {
+    for (const c of commandDefinitions) {
+      // dm_permission false in the registered payload
+      expect(c.dm_permission).toBe(false);
+    }
+  });
+
+  it("requires ManageGuild for subscribe/unsubscribe and Administrator for dev-fire", () => {
+    const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
+    // Bit values per discord-api-types: ManageGuild=0x20, Administrator=0x8
+    expect(byName.subscribe?.default_member_permissions).toBeTruthy();
+    expect(byName.unsubscribe?.default_member_permissions).toBeTruthy();
+    expect(byName["dev-fire"]?.default_member_permissions).toBeTruthy();
   });
 });

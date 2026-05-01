@@ -9,15 +9,15 @@ import { childLogger } from "../log.js";
 const log = childLogger("register-commands");
 
 async function main() {
-  const env = loadEnv();
-  await registerCommands({
-    token: env.DISCORD_TOKEN,
-    clientId: env.DISCORD_CLIENT_ID,
-  });
-  log.info("registered global slash commands", { count: commandDefinitions.length });
+	const env = loadEnv();
+	await registerCommands({
+		token: env.DISCORD_TOKEN,
+		clientId: env.DISCORD_CLIENT_ID,
+	});
+	log.info("registered global slash commands", { count: commandDefinitions.length });
 }
 
 main().catch((err) => {
-  childLogger("register-commands").error("register failed", { err });
-  process.exit(1);
+	childLogger("register-commands").error("register failed", { err });
+	process.exit(1);
 });

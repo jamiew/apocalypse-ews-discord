@@ -58,6 +58,8 @@ export interface AlertItem {
   pubDate: string;
 }
 
+export type LastAlert = { title: string; pubDate: string } | null;
+
 export function alertPayload(item: AlertItem): string {
   return [
     "Apocalypse Early Warning System — emergency level 5.",
@@ -69,24 +71,16 @@ export function alertPayload(item: AlertItem): string {
     .join("\n");
 }
 
-export function statusLine(args: {
-  subscribed: boolean;
-  lastAlert: { title: string; pubDate: string } | null;
-}): string {
-  const sub = args.subscribed ? "Subscribed" : "Not subscribed";
-  const last = args.lastAlert
-    ? `${args.lastAlert.pubDate} — ${args.lastAlert.title}`
-    : "none on record";
-  return `${sub}. Last alert: ${last}.`;
+function formatLastAlert(last: LastAlert): string {
+  return last ? `${last.pubDate} — ${last.title}` : "none on record";
 }
 
-export function pingPongLine(args: {
-  subscribed: boolean;
-  lastAlert: { title: string; pubDate: string } | null;
-}): string {
+export function statusLine(args: { subscribed: boolean; lastAlert: LastAlert }): string {
+  const sub = args.subscribed ? "Subscribed" : "Not subscribed";
+  return `${sub}. Last alert: ${formatLastAlert(args.lastAlert)}.`;
+}
+
+export function pingPongLine(args: { subscribed: boolean; lastAlert: LastAlert }): string {
   const sub = args.subscribed ? "subscribed" : "not subscribed";
-  const last = args.lastAlert
-    ? `${args.lastAlert.pubDate} — ${args.lastAlert.title}`
-    : "none on record";
-  return `Still here. Last alert: ${last}. Status: ${sub}.`;
+  return `Still here. Last alert: ${formatLastAlert(args.lastAlert)}. Status: ${sub}.`;
 }

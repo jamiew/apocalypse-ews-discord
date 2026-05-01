@@ -86,7 +86,7 @@ pnpm check && pnpm typecheck && pnpm test && pnpm build
 
 - **Message Content Intent** must be enabled in the Developer Portal for DM ping/pong to work — gateway-only feature.
 - **Partials** `[Channel, Message]` are required so `messageCreate` fires for DMs the bot wasn't cached for.
-- **Global slash commands** take up to ~1 hour to propagate. For dev iteration, switch `Routes.applicationCommands(clientId)` to `Routes.applicationGuildCommands(clientId, guildId)` in `src/discord.ts` — guild commands are instant.
+- **Global slash commands** take up to ~1 hour to propagate. For dev iteration, set `TEST_GUILD_ID` in `.env` to your test server id — `pnpm register-commands` will register guild-scoped commands (instant) instead of global. Unset for prod.
 - The hidden `/dev-fire` command is gated by env `DEV_ADMIN_USER_ID`; without it, the command replies "Not authorized."
 
 ## Logging & events

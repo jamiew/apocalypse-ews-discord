@@ -109,12 +109,21 @@ export const commandDefinitions = [
 		.setDMPermission(false),
 ].map((c) => c.toJSON());
 
-/** Push the {@link commandDefinitions} as global commands. ~1h propagation. */
-export async function registerCommands(args: { token: string; clientId: string }): Promise<void> {
+/**
+ * Push the {@link commandDefinitions} to Discord. If `guildId` is provided,
+ * registers them as guild-scoped (instant propagation, what you want in dev);
+ * otherwise registers them globally (~1h propagation, what you want in prod).
+ */
+export async function registerCommands(args: {
+	token: string;
+	clientId: string;
+	guildId?: Snowflake;
+}): Promise<void> {
 	const rest = new REST({ version: "10" }).setToken(args.token);
-	await rest.put(Routes.applicationCommands(args.clientId), {
-		body: commandDefinitions,
-	});
+	const route = args.guildId
+		? Routes.applicationGuildCommands(args.clientId, args.guildId)
+		: Routes.applicationCommands(args.clientId);
+	await rest.put(route, { body: commandDefinitions });
 }
 
 /** Shared dependencies threaded through the client's event handlers. */

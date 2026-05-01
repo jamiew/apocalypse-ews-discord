@@ -31,7 +31,7 @@ The bot needs a persistent process — Discord's gateway is a long-lived WebSock
    https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=3072&scope=bot%20applications.commands
    ```
 
-6. After deployment, run once: `pnpm register-commands`. Global slash commands take up to ~1 hour to propagate; for testing, register against a single guild instead by editing `src/discord.ts` to use `Routes.applicationGuildCommands(...)`.
+6. After deployment, run once: `pnpm register-commands`. Global slash commands take up to ~1 hour to propagate. For dev, set `TEST_GUILD_ID=<your test server id>` in `.env` — the script will register guild-scoped commands instead, which appear instantly. Unset (or leave empty) for global registration in prod.
 
 ## Database
 

@@ -40,7 +40,7 @@ function deriveGuid(item: RssItemShape): string {
 }
 
 /** Fetch and validate the RSS feed at the given URL. Throws on malformed feeds. */
-export async function fetchFeed(url: string): Promise<NewAlert[]> {
+async function fetchFeed(url: string): Promise<NewAlert[]> {
 	const raw = await parser.parseURL(url);
 	const feed = RssFeed.parse(raw);
 	return feed.items.map((item) => ({

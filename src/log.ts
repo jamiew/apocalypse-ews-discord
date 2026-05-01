@@ -1,8 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-/** Log severities. Lower number = noisier. */
-export type LogLevel = "debug" | "info" | "warn" | "error";
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
@@ -109,15 +108,4 @@ export const log: Logger = makeLogger();
 /** Module-scoped logger. Records carry `module=<name>`. */
 export function childLogger(module: string): Logger {
 	return log.child({ module });
-}
-
-/** Best-effort string for an unknown error value. Falls back to `String(err)`. */
-export function errorMessage(err: unknown): string {
-	if (err instanceof Error) return err.stack ?? err.message;
-	if (typeof err === "string") return err;
-	try {
-		return safeStringify(err);
-	} catch {
-		return String(err);
-	}
 }

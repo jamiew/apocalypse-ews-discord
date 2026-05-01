@@ -1,6 +1,6 @@
 # Apocalypse EWS — Discord bot
 
-Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.net). Mirrors the existing [Telegram channel](https://t.me/apocalypse_ews) — when the system reaches emergency level 5, the bot posts an alert to subscribed channels and DMs.
+Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.net) ([source](https://github.com/kylemcdonald/ews)). Mirrors the existing [Telegram channel](https://t.me/apocalypse_ews) — when the system reaches emergency level 5, the bot posts an alert to subscribed channels and DMs.
 
 Tone is deadpan and technical, replicating the website. All user-facing strings live in `src/copy.ts`.
 
@@ -138,6 +138,8 @@ If you want option 1, this needs a real port: replace the gateway client with a 
 ## Layout
 
 ```
+assets/
+  ews-icon.jpg    # bundled radiation-symbol icon — reuse for bot avatar, embed thumbnails, etc.
 src/
   index.ts        # boot: db, discord client, crons
   discord.ts      # client, commands, DM handler, fan-out, event recording

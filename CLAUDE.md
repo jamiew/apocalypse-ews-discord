@@ -6,6 +6,8 @@ Project-specific notes for Claude Code working on this repo. Read these before c
 
 A Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.net). One job: when the RSS feed at `https://ews.kylemcdonald.net/rss.xml` shows a new emergency-level-5 alert, fan it out to subscribed Discord channels and DM users. Plus an annual "you're still subscribed" reminder.
 
+Upstream project (Kyle McDonald): <https://github.com/kylemcdonald/ews> — read this first if you need to understand what an "emergency level 5" actually means, or what the dashboard is doing under the hood.
+
 The Telegram channel [@apocalypse_ews](https://t.me/apocalypse_ews) does the same job for Telegram. We are deliberately a Discord-only mirror of that.
 
 ## Architecture
@@ -52,6 +54,8 @@ Source phrases worth preserving:
 - *"Automatic updates about unusual private jet activity."*
 
 Don't add 🚨, ⚠️, "🔴 ALERT", or anything chipper. If a string would feel out of place on the source website, it's wrong.
+
+When you need a thumbnail / avatar / embed image, reuse `assets/ews-icon.jpg` (the radiation-symbol mark from the Telegram channel — bundled in-repo so we don't depend on a CDN). Don't introduce new branding.
 
 `copy.test.ts` has a "tone guard" suite that fails on exclamation points or emoji in user-facing strings, and on missing source-URL/uninstall hints in the welcome. Don't disable those tests; if you genuinely need to change the rule, change the test alongside the code.
 

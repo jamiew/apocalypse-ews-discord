@@ -5,7 +5,7 @@ const schema = z.object({
   DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
   DEV_ADMIN_USER_ID: z.string().optional(),
   DATABASE_PATH: z.string().default("./data/ews.db"),
-  EWS_RSS_URL: z.string().url().default("https://ews.kylemcdonald.net/rss.xml"),
+  EWS_RSS_URL: z.url().default("https://ews.kylemcdonald.net/rss.xml"),
   POLL_CRON: z.string().default("*/30 * * * *"),
   REMINDER_CRON: z.string().default("0 13 * * *"),
 });

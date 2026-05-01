@@ -1,28 +1,48 @@
 import { createHash } from "node:crypto";
 import RSSParser from "rss-parser";
+import { z } from "zod";
 import type { AlertItem } from "./copy.js";
 import type { DB } from "./db.js";
 
+/** A new alert item from the RSS feed, with a stable guid for dedup. */
 export interface NewAlert extends AlertItem {
 	guid: string;
 }
 
 const parser = new RSSParser({ timeout: 15_000 });
 
-// Falls back to a hash if the feed item omits <guid>.
-function deriveGuid(item: {
-	guid?: string;
-	link?: string;
-	pubDate?: string;
-	title?: string;
-}): string {
+// rss-parser provides TypeScript types, but those are compile-time only — the
+// returned data is whatever the upstream XML had. Validate at the boundary so
+// a malformed feed doesn't silently produce nonsense rows downstream.
+const RssItem = z
+	.object({
+		guid: z.string().optional(),
+		link: z.string().optional(),
+		title: z.string().optional(),
+		pubDate: z.string().optional(),
+		isoDate: z.string().optional(),
+	})
+	.loose();
+
+const RssFeed = z
+	.object({
+		items: z.array(RssItem),
+	})
+	.loose();
+
+type RssItemShape = z.infer<typeof RssItem>;
+
+/** Falls back to a hash if the feed item omits `<guid>`. */
+function deriveGuid(item: RssItemShape): string {
 	if (item.guid?.trim()) return item.guid.trim();
 	const basis = `${item.link ?? ""}|${item.pubDate ?? ""}|${item.title ?? ""}`;
 	return createHash("sha1").update(basis).digest("hex");
 }
 
+/** Fetch and validate the RSS feed at the given URL. Throws on malformed feeds. */
 export async function fetchFeed(url: string): Promise<NewAlert[]> {
-	const feed = await parser.parseURL(url);
+	const raw = await parser.parseURL(url);
+	const feed = RssFeed.parse(raw);
 	return feed.items.map((item) => ({
 		guid: deriveGuid(item),
 		title: item.title ?? "(untitled)",

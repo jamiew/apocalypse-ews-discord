@@ -79,9 +79,15 @@ export interface SeenAlert {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, "../migrations");
 
+/**
+ * SQLite-backed persistence for the bot. Owns one better-sqlite3 handle per
+ * process. All queries are sync — better-sqlite3 doesn't do async — so call
+ * sites read like regular code. WAL is on by default.
+ */
 export class DB {
 	private readonly db: Database.Database;
 
+	/** Opens (or creates + migrates) the database at `path`. Pass `:memory:` for tests. */
 	constructor(path: string) {
 		if (path !== ":memory:") {
 			mkdirSync(dirname(resolve(path)), { recursive: true });

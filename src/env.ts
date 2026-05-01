@@ -14,8 +14,13 @@ const schema = z.object({
 	LOG_FILE: z.string().optional(),
 });
 
+/** Validated environment shape for the bot process. */
 export type Env = z.infer<typeof schema>;
 
+/**
+ * Parses `process.env` against the schema. Throws an Error with a multi-line
+ * summary of every invalid field — boot fails loudly, not silently.
+ */
 export function loadEnv(): Env {
 	const parsed = schema.safeParse(process.env);
 	if (!parsed.success) {

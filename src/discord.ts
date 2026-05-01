@@ -11,6 +11,7 @@ import {
 	REST,
 	Routes,
 	SlashCommandBuilder,
+	type Snowflake,
 	type TextBasedChannel,
 } from "discord.js";
 import {
@@ -35,11 +36,13 @@ import { childLogger } from "./log.js";
 
 const log = childLogger("discord");
 
+/** What the user meant when they sent a DM. */
 export type DmIntent = "subscribe" | "unsubscribe" | "other";
 
 const SUBSCRIBE_KEYWORDS = new Set(["subscribe", "start", "yes", "y"]);
 const UNSUBSCRIBE_KEYWORDS = new Set(["unsubscribe", "stop", "cancel", "quit", "end"]);
 
+/** Maps a raw DM body to a {@link DmIntent}. Trim + case-insensitive keyword set. */
 export function classifyDmText(raw: string): DmIntent {
 	const text = raw.trim().toLowerCase();
 	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
@@ -47,15 +50,22 @@ export function classifyDmText(raw: string): DmIntent {
 	return "other";
 }
 
-// Channel-shape just enough to pick a welcome channel. Lets us test the
-// selection logic without constructing a full discord.js Guild fixture.
+/**
+ * Channel-shape just enough to pick a welcome channel. Lets us test the
+ * selection logic without constructing a full discord.js Guild fixture.
+ */
 export interface WelcomeChannelCandidate {
-	id: string;
+	id: Snowflake;
 	type: ChannelType;
 	position: number;
 	canSend: boolean;
 }
 
+/**
+ * Picks where to post the install-welcome message: prefer the guild's system
+ * channel if the bot can speak there; otherwise the lowest-position text
+ * channel the bot can send to. Returns null if there's nowhere to post.
+ */
 export function pickWelcomeChannelFrom(
 	systemChannel: WelcomeChannelCandidate | null,
 	channels: readonly WelcomeChannelCandidate[],
@@ -99,6 +109,7 @@ export const commandDefinitions = [
 		.setDMPermission(false),
 ].map((c) => c.toJSON());
 
+/** Push the {@link commandDefinitions} as global commands. ~1h propagation. */
 export async function registerCommands(args: { token: string; clientId: string }): Promise<void> {
 	const rest = new REST({ version: "10" }).setToken(args.token);
 	await rest.put(Routes.applicationCommands(args.clientId), {
@@ -106,11 +117,14 @@ export async function registerCommands(args: { token: string; clientId: string }
 	});
 }
 
+/** Shared dependencies threaded through the client's event handlers. */
 export interface BotDeps {
 	db: DB;
-	devAdminUserId?: string;
+	/** Discord user id allowed to invoke the hidden /dev-fire admin command. */
+	devAdminUserId?: Snowflake;
 }
 
+/** Builds and configures the discord.js client; caller is responsible for `login`. */
 export function createClient(deps: BotDeps): Client {
 	const client = new Client({
 		intents: [
@@ -382,6 +396,11 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 	);
 }
 
+/**
+ * Delivers `alert` to every active subscriber. Per-subscriber failures are
+ * caught and recorded as `alert_dispatch_fail` events; the function never
+ * throws to the caller. Returns aggregate sent/failed counts.
+ */
 export async function fanOutAlert(
 	client: Client,
 	deps: BotDeps,
@@ -418,6 +437,10 @@ export async function fanOutAlert(
 	return { sent, failed };
 }
 
+/**
+ * Sends `body` to a single subscriber, routing by kind: REST send to a guild
+ * channel, or a DM to a user. Throws if the channel is missing or unsendable.
+ */
 export async function sendToSubscriber(
 	client: Client,
 	sub: Subscriber,

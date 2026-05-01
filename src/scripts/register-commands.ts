@@ -14,10 +14,10 @@ async function main() {
     token: env.DISCORD_TOKEN,
     clientId: env.DISCORD_CLIENT_ID,
   });
-  log.info({ count: commandDefinitions.length }, "registered global slash commands");
+  log.info("registered global slash commands", { count: commandDefinitions.length });
 }
 
 main().catch((err) => {
-  childLogger("register-commands").fatal({ err }, "register failed");
+  childLogger("register-commands").error("register failed", { err });
   process.exit(1);
 });

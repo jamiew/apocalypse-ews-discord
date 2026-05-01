@@ -9,7 +9,9 @@ const schema = z.object({
   POLL_CRON: z.string().default("*/30 * * * *"),
   REMINDER_CRON: z.string().default("0 13 * * *"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+  // Defaults to ./data/ews.log. Set LOG_FILE="" to disable file output.
+  LOG_FILE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

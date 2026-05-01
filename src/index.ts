@@ -15,7 +15,7 @@ async function main() {
   const client = createClient(deps);
 
   await client.login(env.DISCORD_TOKEN);
-  log.info({ rss: env.EWS_RSS_URL, poll: env.POLL_CRON }, "started");
+  log.info("started", { rss: env.EWS_RSS_URL, poll: env.POLL_CRON });
 
   const pollLog = childLogger("poller");
   const pollTask = cron.schedule(env.POLL_CRON, async () => {
@@ -25,12 +25,12 @@ async function main() {
         url: env.EWS_RSS_URL,
         onNewAlert: async (alert) => {
           const result = await fanOutAlert(client, deps, alert);
-          pollLog.info({ guid: alert.guid, ...result }, "alert dispatched");
+          pollLog.info("alert dispatched", { guid: alert.guid, ...result });
         },
       });
       if (fresh.length === 0) pollLog.debug("poll: no new items");
     } catch (err) {
-      pollLog.error({ err }, "poll error");
+      pollLog.error("poll error", { err });
     }
   });
 
@@ -38,14 +38,14 @@ async function main() {
   const reminderTask = cron.schedule(env.REMINDER_CRON, async () => {
     try {
       const result = await sendDueReminders({ db, client });
-      if (result.sent || result.failed) reminderLog.info(result, "reminder sweep");
+      if (result.sent || result.failed) reminderLog.info("reminder sweep", result);
     } catch (err) {
-      reminderLog.error({ err }, "reminder error");
+      reminderLog.error("reminder error", { err });
     }
   });
 
   const shutdown = async (signal: string) => {
-    log.info({ signal }, "shutting down");
+    log.info("shutting down", { signal });
     pollTask.stop();
     reminderTask.stop();
     await client.destroy().catch(() => {});
@@ -57,6 +57,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  childLogger("boot").fatal({ err }, "fatal");
+  childLogger("boot").error("fatal", { err });
   process.exit(1);
 });

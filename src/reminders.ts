@@ -22,7 +22,7 @@ export async function sendDueReminders(args: {
       sent++;
     } catch (err) {
       failed++;
-      log.error({ err, kind: sub.kind, address: sub.discord_id }, "reminder failed");
+      log.error("reminder failed", { err, kind: sub.kind, address: sub.discord_id });
     }
   }
   return { sent, failed };

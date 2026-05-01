@@ -124,19 +124,19 @@ export function createClient(deps: BotDeps): Client {
   });
 
   client.once(Events.ClientReady, (c) => {
-    log.info({ tag: c.user.tag, id: c.user.id }, "logged in");
+    log.info("logged in", { tag: c.user.tag, id: c.user.id });
   });
 
   client.on(Events.GuildCreate, (guild) => {
     void onGuildCreate(guild).catch((err) =>
-      log.error({ err, guildId: guild.id }, "guildCreate failed"),
+      log.error("guildCreate failed", { err, guildId: guild.id }),
     );
   });
 
   client.on(Events.InteractionCreate, (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     void handleCommand(interaction, deps, client).catch((err) => {
-      log.error({ err, command: interaction.commandName }, "command failed");
+      log.error("command failed", { err, command: interaction.commandName });
     });
   });
 
@@ -144,7 +144,7 @@ export function createClient(deps: BotDeps): Client {
     if (message.author.bot) return;
     if (message.channel.type !== ChannelType.DM) return;
     void handleDM(message, deps).catch((err) =>
-      log.error({ err, userId: message.author.id }, "dm handler failed"),
+      log.error("dm handler failed", { err, userId: message.author.id }),
     );
   });
 
@@ -326,7 +326,7 @@ export async function fanOutAlert(
       sent++;
     } catch (err) {
       failed++;
-      log.error({ err, kind: sub.kind, address: sub.discord_id }, "deliver failed");
+      log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
     }
   }
   return { sent, failed };

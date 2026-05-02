@@ -20,18 +20,16 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 - Operator (`OPERATOR_USER_ID`, falls back to `DEV_ADMIN_USER_ID`) DM'd on install / subscribe / unsubscribe.
 - Hidden `/dev-fire` (gated by `DEV_ADMIN_USER_ID`) synthesizes a level 5 for testing.
 
-## // SUBSYSTEMS
+## // STACK
 
-Bun runtime. discord.js, rss-parser, node-cron, zod, `bun:sqlite`. Biome for lint+format. `bun:test` for tests.
-
-```
-src/  index boot · discord gateway+commands · poller ingest · level-poller transitions
-      reminders cron · db state · copy voice · env config · log telemetry
-migrations/  0001 subscribers+seen_alerts · 0002 events · 0003 level_state
-docs/  Pages splash · assets/  icon · Dockerfile · compose.yaml
-```
-
-Four tables: `subscribers`, `seen_alerts`, `events`, `level_state`. Migrations apply in lex order on boot.
+- bun
+- discord.js
+- rss-parser
+- node-cron
+- zod
+- bun:sqlite
+- biome for lint+format
+- bun:test for tests
 
 ## // INITIALIZE
 

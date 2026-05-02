@@ -28,6 +28,8 @@ export type EventKind =
 	| "unsubscribe"
 	| "dm_in"
 	| "dm_out"
+	| "mention_in"
+	| "mention_out"
 	| "alert_seen"
 	| "alert_dispatch_ok"
 	| "alert_dispatch_fail"

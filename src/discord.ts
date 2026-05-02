@@ -30,6 +30,8 @@ import {
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
 	HELP,
+	MENTION_INSUFFICIENT_PRIVILEGES,
+	MENTION_UNKNOWN,
 	pingPongLine,
 	statusLine,
 } from "./copy.js";
@@ -41,8 +43,13 @@ const log = childLogger("discord");
 /** What the user meant when they sent a DM. */
 export type DmIntent = "subscribe" | "unsubscribe" | "other";
 
+/** What the user meant when they @-mentioned the bot in a guild channel. */
+export type MentionIntent = "subscribe" | "unsubscribe" | "status" | "help" | "other";
+
 const SUBSCRIBE_KEYWORDS = new Set(["subscribe", "start", "yes", "y"]);
 const UNSUBSCRIBE_KEYWORDS = new Set(["unsubscribe", "stop", "cancel", "quit", "end"]);
+const STATUS_KEYWORDS = new Set(["status", "state"]);
+const HELP_KEYWORDS = new Set(["help", "?"]);
 
 /** Maps a raw DM body to a {@link DmIntent}. Trim + case-insensitive keyword set. */
 export function classifyDmText(raw: string): DmIntent {
@@ -50,6 +57,26 @@ export function classifyDmText(raw: string): DmIntent {
 	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
 	if (UNSUBSCRIBE_KEYWORDS.has(text)) return "unsubscribe";
 	return "other";
+}
+
+/**
+ * Maps a raw @-mention body (with the mention prefix already stripped) to a
+ * {@link MentionIntent}. Recognizes the same subscribe/unsubscribe keywords
+ * as DMs, plus `status` and `help`.
+ */
+export function classifyMentionText(raw: string): MentionIntent {
+	const text = raw.trim().toLowerCase();
+	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
+	if (UNSUBSCRIBE_KEYWORDS.has(text)) return "unsubscribe";
+	if (STATUS_KEYWORDS.has(text)) return "status";
+	if (HELP_KEYWORDS.has(text)) return "help";
+	return "other";
+}
+
+/** Strips bot user mentions (`<@id>` / `<@!id>`) from a message body. */
+export function stripMention(content: string, botUserId: Snowflake): string {
+	const re = new RegExp(`<@!?${botUserId}>`, "g");
+	return content.replace(re, "").trim();
 }
 
 /**
@@ -209,9 +236,18 @@ export function createClient(deps: BotDeps): Client {
 
 	client.on(Events.MessageCreate, (message) => {
 		if (message.author.bot) return;
-		if (message.channel.type !== ChannelType.DM) return;
-		void handleDM(message, deps).catch((err) =>
-			log.error("dm handler failed", { err, userId: message.author.id }),
+		if (message.channel.type === ChannelType.DM) {
+			void handleDM(message, deps).catch((err) =>
+				log.error("dm handler failed", { err, userId: message.author.id }),
+			);
+			return;
+		}
+		// Guild channel: only react when the bot itself is mentioned. Avoids
+		// chiming in on every message in a subscribed channel.
+		const me = client.user;
+		if (!me || !message.mentions.users.has(me.id)) return;
+		void handleMention(message, deps, me.id).catch((err) =>
+			log.error("mention handler failed", { err, channelId: message.channelId }),
 		);
 	});
 
@@ -446,6 +482,88 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 			lastAlert: deps.db.lastAlertForDisplay(),
 		}),
 	);
+}
+
+async function handleMention(message: Message, deps: BotDeps, botUserId: Snowflake): Promise<void> {
+	if (!message.guildId || !message.channelId) return;
+	const userId = message.author.id;
+	const guildId = message.guildId;
+	const channelId = message.channelId;
+	const stripped = stripMention(message.content, botUserId);
+	const intent = classifyMentionText(stripped);
+
+	deps.db.recordEvent({
+		kind: "mention_in",
+		guildId,
+		channelId,
+		userId,
+		payload: { content: message.content, stripped, intent },
+	});
+
+	const reply = async (content: string) => {
+		await message.reply(content);
+		deps.db.recordEvent({ kind: "mention_out", guildId, channelId, userId, payload: { content } });
+	};
+
+	if (intent === "help") {
+		await reply(HELP);
+		return;
+	}
+
+	if (intent === "status") {
+		const sub = deps.db.findSubscriber("guild_channel", channelId);
+		await reply(
+			statusLine({
+				subscribed: sub?.status === "active",
+				lastAlert: deps.db.lastAlertForDisplay(),
+			}),
+		);
+		return;
+	}
+
+	if (intent === "subscribe" || intent === "unsubscribe") {
+		// Same gate as the slash command. message.member can be null in rare
+		// uncached cases — treat that as no permission rather than crashing.
+		const hasPerm = message.member?.permissions.has(PermissionFlagsBits.ManageGuild) === true;
+		if (!hasPerm) {
+			await reply(MENTION_INSUFFICIENT_PRIVILEGES);
+			return;
+		}
+		if (intent === "subscribe") {
+			const result = deps.db.upsertSubscribed({
+				kind: "guild_channel",
+				discordId: channelId,
+				guildId,
+				now: new Date().toISOString(),
+			});
+			const fresh = result.created || result.reactivated;
+			if (fresh) {
+				deps.db.recordEvent({
+					kind: "subscribe",
+					guildId,
+					channelId,
+					userId,
+					payload: { kind: "guild_channel", reactivated: result.reactivated, via: "mention" },
+				});
+			}
+			await reply(fresh ? GUILD_SUBSCRIBE_OK : GUILD_ALREADY_SUBSCRIBED);
+			return;
+		}
+		const removed = deps.db.markUnsubscribed("guild_channel", channelId);
+		if (removed) {
+			deps.db.recordEvent({
+				kind: "unsubscribe",
+				guildId,
+				channelId,
+				userId,
+				payload: { kind: "guild_channel", via: "mention" },
+			});
+		}
+		await reply(removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED);
+		return;
+	}
+
+	await reply(MENTION_UNKNOWN);
 }
 
 /**

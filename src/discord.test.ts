@@ -7,8 +7,10 @@ import {
 import { describe, expect, it } from "vitest";
 import {
 	classifyDmText,
+	classifyMentionText,
 	commandDefinitions,
 	pickWelcomeChannelFrom,
+	stripMention,
 	type WelcomeChannelCandidate,
 } from "./discord.js";
 
@@ -30,6 +32,39 @@ describe("classifyDmText", () => {
 		["unsub", "other"],
 	] as const)("classifies %j as %s", (input, expected) => {
 		expect(classifyDmText(input)).toBe(expected);
+	});
+});
+
+describe("classifyMentionText", () => {
+	it.each([
+		["subscribe", "subscribe"],
+		["yes", "subscribe"],
+		["unsubscribe", "unsubscribe"],
+		["stop", "unsubscribe"],
+		["status", "status"],
+		["state", "status"],
+		["help", "help"],
+		["?", "help"],
+		["hello", "other"],
+		["", "other"],
+	] as const)("classifies %j as %s", (input, expected) => {
+		expect(classifyMentionText(input)).toBe(expected);
+	});
+});
+
+describe("stripMention", () => {
+	it("strips both <@id> and <@!id> forms", () => {
+		expect(stripMention("<@111> hi", "111")).toBe("hi");
+		expect(stripMention("<@!111> hi", "111")).toBe("hi");
+	});
+
+	it("trims surrounding whitespace and leaves other text alone", () => {
+		expect(stripMention("  <@111>   subscribe  ", "111")).toBe("subscribe");
+		expect(stripMention("hi <@222>", "111")).toBe("hi <@222>");
+	});
+
+	it("removes multiple occurrences", () => {
+		expect(stripMention("<@111> hello <@111>", "111")).toBe("hello");
 	});
 });
 

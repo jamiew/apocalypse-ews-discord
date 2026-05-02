@@ -5,6 +5,8 @@ import {
 	DM_OPT_IN_PROMPT,
 	GUILD_WELCOME,
 	HELP,
+	type LevelChange,
+	levelChangePayload,
 	MENTION_INSUFFICIENT_PRIVILEGES,
 	MENTION_UNKNOWN,
 	pingPongLine,
@@ -58,6 +60,66 @@ describe("pingPongLine", () => {
 		expect(pingPongLine({ subscribed: false, lastAlert: null })).toBe(
 			"Still here. Last: none. Status: not subscribed.",
 		);
+	});
+});
+
+describe("levelChangePayload", () => {
+	const base: Omit<LevelChange, "level" | "prevLevel"> = {
+		alertLevel: "elevated",
+		zScore: 4.7,
+		asOf: "2026-05-02T01:29:50+00:00",
+	};
+
+	it("uses ATTENTION header for level 5 rising", () => {
+		const out = levelChangePayload({ ...base, level: 5, prevLevel: 4 });
+		expect(out).toMatch(/^ATTENTION\. EMERGENCY LEVEL 5\.$/m);
+		expect(out).toContain("Was 4, now 5.");
+	});
+
+	it("uses WARNING for level 4 rising", () => {
+		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 });
+		expect(out).toMatch(/^WARNING\. Emergency level 4\.$/m);
+	});
+
+	it("uses ELEVATED for level 3 rising", () => {
+		const out = levelChangePayload({ ...base, level: 3, prevLevel: 2 });
+		expect(out).toMatch(/^ELEVATED\. Emergency level 3\.$/m);
+	});
+
+	it("uses Notice for level 2 rising", () => {
+		const out = levelChangePayload({ ...base, level: 2, prevLevel: 1 });
+		expect(out).toMatch(/^Notice\. Emergency level 2\.$/m);
+	});
+
+	it("renders Stand-down on a falling transition", () => {
+		const out = levelChangePayload({ ...base, level: 1, prevLevel: 5 });
+		expect(out).toMatch(/^Stand-down\. Emergency level returned to 1\.$/m);
+		expect(out).toContain("Was 5, now 1.");
+	});
+
+	it("formats the metadata tail with label, z-score, asOf", () => {
+		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 });
+		expect(out).toContain("label: elevated");
+		expect(out).toContain("z=4.70");
+		expect(out).toContain("as of 2026-05-02T01:29:50+00:00");
+		expect(out).toContain(SOURCE_URL);
+	});
+
+	it("omits absent metadata cleanly", () => {
+		const out = levelChangePayload({
+			level: 2,
+			prevLevel: 1,
+			alertLevel: null,
+			zScore: null,
+			asOf: null,
+		});
+		// header + fromTo + source URL — no orphan metadata line
+		expect(out.split("\n")).toEqual(["Notice. Emergency level 2.", "Was 1, now 2.", SOURCE_URL]);
+	});
+
+	it("first observation (prevLevel null) reads as a new observation", () => {
+		const out = levelChangePayload({ ...base, level: 3, prevLevel: null });
+		expect(out).toContain("New observation: level 3.");
 	});
 });
 

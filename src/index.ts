@@ -1,7 +1,8 @@
 import cron from "node-cron";
 import { DB } from "./db.js";
-import { createClient, fanOutAlert } from "./discord.js";
+import { createClient, fanOutAlert, fanOutLevelChange } from "./discord.js";
 import { loadEnv } from "./env.js";
+import { pollLevelOnce } from "./level-poller.js";
 import { childLogger } from "./log.js";
 import { pollOnce } from "./poller.js";
 import { sendDueReminders } from "./reminders.js";
@@ -19,9 +20,17 @@ async function main() {
 	const client = createClient(deps);
 
 	await client.login(env.DISCORD_TOKEN);
-	log.info("started", { rss: env.EWS_RSS_URL, poll: env.POLL_CRON });
-	db.recordEvent({ kind: "startup", payload: { rss: env.EWS_RSS_URL } });
+	log.info("started", {
+		rss: env.EWS_RSS_URL,
+		dashboard: env.EWS_DASHBOARD_URL,
+		poll: env.POLL_CRON,
+	});
+	db.recordEvent({
+		kind: "startup",
+		payload: { rss: env.EWS_RSS_URL, dashboard: env.EWS_DASHBOARD_URL },
+	});
 
+	// RSS poll — level-5 incidents with full title/link/pubDate.
 	const pollLog = childLogger("poller");
 	const pollTask = cron.schedule(env.POLL_CRON, async () => {
 		try {
@@ -33,12 +42,36 @@ async function main() {
 					pollLog.info("alert dispatched", { guid: alert.guid, ...result });
 				},
 			});
-			if (fresh.length === 0) pollLog.debug("poll: no new items");
+			if (fresh.length === 0) pollLog.debug("rss poll: no new items");
 		} catch (err) {
-			pollLog.error("poll error", { err });
+			pollLog.error("rss poll error", { err });
 		}
 	});
 
+	// Dashboard JSON poll — emergencyLevel transitions for ALL levels (1..5),
+	// including drop-back-to-normal events. Runs on the same cadence as RSS.
+	const levelLog = childLogger("level");
+	const levelTask = cron.schedule(env.POLL_CRON, async () => {
+		try {
+			const change = await pollLevelOnce({
+				db,
+				url: env.EWS_DASHBOARD_URL,
+				onLevelChange: async (c) => {
+					const result = await fanOutLevelChange(client, deps, c);
+					levelLog.info("level dispatched", {
+						level: c.level,
+						prevLevel: c.prevLevel,
+						...result,
+					});
+				},
+			});
+			if (!change) levelLog.debug("level poll: no change");
+		} catch (err) {
+			levelLog.error("level poll error", { err });
+		}
+	});
+
+	// Daily annual-reminder sweep.
 	const reminderLog = childLogger("reminders");
 	const reminderTask = cron.schedule(env.REMINDER_CRON, async () => {
 		try {
@@ -53,6 +86,7 @@ async function main() {
 		log.info("shutting down", { signal });
 		db.recordEvent({ kind: "shutdown", payload: { signal } });
 		pollTask.stop();
+		levelTask.stop();
 		reminderTask.stop();
 		await client.destroy().catch(() => {});
 		db.close();

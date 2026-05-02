@@ -30,6 +30,8 @@ import {
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
 	HELP,
+	type LevelChange,
+	levelChangePayload,
 	MENTION_INSUFFICIENT_PRIVILEGES,
 	MENTION_UNKNOWN,
 	pingPongLine,
@@ -646,6 +648,60 @@ export async function fanOutAlert(
 				kind: "alert_dispatch_fail",
 				...eventBase,
 				payload: { guid: alert.guid, kind: sub.kind, err },
+			});
+		}
+	}
+	return { sent, failed };
+}
+
+/**
+ * Delivers a level-change announcement to every active subscriber. Same
+ * fan-out shape as {@link fanOutAlert} but the body comes from
+ * {@link levelChangePayload} and the dispatch events carry
+ * `source: "level_change"` so they're distinguishable from RSS-driven
+ * level-5 incidents in the audit log.
+ */
+export async function fanOutLevelChange(
+	client: Client,
+	deps: BotDeps,
+	change: LevelChange,
+): Promise<{ sent: number; failed: number }> {
+	const subs = deps.db.listActive();
+	let sent = 0;
+	let failed = 0;
+	const body = levelChangePayload(change);
+	for (const sub of subs) {
+		const eventBase = {
+			guildId: sub.guild_id,
+			channelId: sub.kind === "guild_channel" ? sub.discord_id : null,
+			userId: sub.kind === "dm" ? sub.discord_id : null,
+		};
+		try {
+			await sendToSubscriber(client, sub, body);
+			sent++;
+			deps.db.recordEvent({
+				kind: "alert_dispatch_ok",
+				...eventBase,
+				payload: {
+					source: "level_change",
+					level: change.level,
+					prevLevel: change.prevLevel,
+					kind: sub.kind,
+				},
+			});
+		} catch (err) {
+			failed++;
+			log.error("level deliver failed", { err, kind: sub.kind, address: sub.discord_id });
+			deps.db.recordEvent({
+				kind: "alert_dispatch_fail",
+				...eventBase,
+				payload: {
+					source: "level_change",
+					level: change.level,
+					prevLevel: change.prevLevel,
+					kind: sub.kind,
+					err,
+				},
 			});
 		}
 	}

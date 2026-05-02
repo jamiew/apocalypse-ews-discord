@@ -12,6 +12,12 @@ const schema = z.object({
 	TEST_GUILD_ID: z.string().optional(),
 	DATABASE_PATH: z.string().default("./data/ews.db"),
 	EWS_RSS_URL: z.url().default("https://ews.kylemcdonald.net/rss.xml"),
+	// Upstream dashboard JSON — has `current.emergencyLevel` (1..5). The bot
+	// polls this on the same cadence as the RSS feed and announces every
+	// level transition. The R2 URL below is what the upstream dashboard reads.
+	EWS_DASHBOARD_URL: z
+		.url()
+		.default("https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json"),
 	POLL_CRON: z.string().default("*/30 * * * *"),
 	REMINDER_CRON: z.string().default("0 13 * * *"),
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

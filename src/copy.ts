@@ -72,6 +72,60 @@ export function alertPayload(item: AlertItem): string {
 		.join("\n");
 }
 
+/** Snapshot of an upstream emergency-level transition. */
+export interface LevelChange {
+	level: number; // 1..5 (new value)
+	prevLevel: number | null; // 1..5 or null if never observed
+	alertLevel: string | null; // upstream's text label, e.g. "elevated", "alarm"
+	asOf: string | null;
+	zScore: number | null;
+}
+
+/**
+ * Header for a level transition. Increasing urgency as the level rises;
+ * "Stand-down" when it falls. The DEFCON-style alarm header is reserved
+ * for level 5 — same string the RSS-driven {@link alertPayload} uses, so
+ * the level-poller and the RSS poller don't say different things on the
+ * same event.
+ */
+function levelHeader(level: number, rising: boolean): string {
+	if (!rising) return `Stand-down. Emergency level returned to ${level}.`;
+	switch (level) {
+		case 5:
+			return "ATTENTION. EMERGENCY LEVEL 5.";
+		case 4:
+			return "WARNING. Emergency level 4.";
+		case 3:
+			return "ELEVATED. Emergency level 3.";
+		case 2:
+			return "Notice. Emergency level 2.";
+		default:
+			return `Status. Emergency level ${level}.`;
+	}
+}
+
+/** One-shot Discord-message body for a level transition. */
+export function levelChangePayload(c: LevelChange): string {
+	const rising = c.prevLevel == null || c.level > c.prevLevel;
+	const fromTo =
+		c.prevLevel == null
+			? `New observation: level ${c.level}.`
+			: `Was ${c.prevLevel}, now ${c.level}.`;
+	const tail = [
+		c.alertLevel ? `label: ${c.alertLevel}` : null,
+		c.zScore != null ? `z=${c.zScore.toFixed(2)}` : null,
+		c.asOf ? `as of ${c.asOf}` : null,
+	].filter(Boolean);
+	return [
+		levelHeader(c.level, rising),
+		fromTo,
+		tail.length > 0 ? tail.join(" · ") : null,
+		SOURCE_URL,
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
 function formatLastAlert(last: LastAlert): string {
 	return last ? `${last.pubDate} — ${last.title}` : "none";
 }

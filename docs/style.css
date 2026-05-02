@@ -273,6 +273,18 @@ details[open] > summary.dispatch::before {
 	font-family: var(--mono);
 }
 
+.howto {
+	margin: 14px 0 0;
+	padding-left: 1.4em;
+	font-size: 0.95rem;
+}
+.howto li {
+	margin-bottom: 4px;
+}
+.howto li:last-child {
+	margin-bottom: 0;
+}
+
 #config-warning {
 	margin-top: 12px;
 	background: #fdd;

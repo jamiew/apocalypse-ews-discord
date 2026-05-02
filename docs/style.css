@@ -1,0 +1,219 @@
+/* Splash page for the Apocalypse EWS Discord bot.
+ * Tone: deadpan terminal, war-games-era. No animations beyond the cursor.
+ */
+
+:root {
+	--bg: #0a0d0a;
+	--bg-elev: #131713;
+	--border: #2a3a2a;
+	--fg: #c8e6c9;
+	--fg-dim: #6b8a6b;
+	--accent: #ffd400;
+	--accent-bright: #ffe566;
+	--danger: #ff5252;
+	--mono:
+		"JetBrains Mono", "Fira Code", "SF Mono", Menlo, Monaco, Consolas, ui-monospace, monospace;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: var(--mono);
+	font-size: 15px;
+	line-height: 1.5;
+	min-height: 100vh;
+}
+
+body {
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 48px 24px 96px;
+}
+
+a {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	text-decoration-thickness: 1px;
+}
+a:hover {
+	color: var(--accent-bright);
+}
+
+code {
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	padding: 1px 6px;
+	border-radius: 2px;
+	font-size: 0.92em;
+	color: var(--accent);
+}
+
+.scanlines {
+	pointer-events: none;
+	position: fixed;
+	inset: 0;
+	background-image: repeating-linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0) 0,
+		rgba(0, 0, 0, 0) 2px,
+		rgba(255, 255, 255, 0.015) 2px,
+		rgba(255, 255, 255, 0.015) 4px
+	);
+	z-index: 999;
+}
+
+/* Hero */
+.hero {
+	text-align: left;
+	padding-bottom: 36px;
+	border-bottom: 1px dashed var(--border);
+	margin-bottom: 40px;
+}
+.icon {
+	display: block;
+	border: 2px solid var(--accent);
+	border-radius: 12px;
+	margin-bottom: 20px;
+	background: #000;
+}
+.hero h1 {
+	font-size: 28px;
+	letter-spacing: 0.04em;
+	font-weight: 700;
+	color: var(--fg);
+	margin: 0 0 12px;
+	line-height: 1.1;
+}
+.tagline {
+	color: var(--fg-dim);
+	margin: 0;
+	letter-spacing: 0.05em;
+}
+.cursor {
+	color: var(--accent);
+	display: inline-block;
+	animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+/* Blocks */
+.block {
+	margin-bottom: 36px;
+}
+.block h2 {
+	font-size: 14px;
+	letter-spacing: 0.12em;
+	color: var(--accent);
+	margin: 0 0 14px;
+	font-weight: 600;
+}
+.block p {
+	margin: 0 0 12px;
+}
+.muted {
+	color: var(--fg-dim);
+}
+.small {
+	font-size: 0.88em;
+}
+
+pre {
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	border-left: 3px solid var(--accent);
+	color: var(--accent-bright);
+	padding: 14px 16px;
+	overflow-x: auto;
+	margin: 0;
+	font-size: 0.9em;
+}
+
+/* Commands table */
+table.cmds {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.95em;
+}
+table.cmds td {
+	border-bottom: 1px dotted var(--border);
+	padding: 10px 0;
+	vertical-align: top;
+}
+table.cmds td:first-child {
+	width: 9em;
+	white-space: nowrap;
+}
+
+/* Install buttons */
+.buttons {
+	display: grid;
+	gap: 12px;
+	margin: 18px 0 12px;
+}
+.btn {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 16px 20px;
+	border: 2px solid var(--accent);
+	background: transparent;
+	color: var(--accent);
+	text-decoration: none;
+	letter-spacing: 0.06em;
+	transition: background 80ms linear;
+}
+.btn:hover {
+	background: rgba(255, 212, 0, 0.08);
+	color: var(--accent-bright);
+}
+.btn-primary {
+	border-color: var(--accent);
+}
+.btn-secondary {
+	border-color: var(--border);
+	color: var(--fg);
+}
+.btn-secondary:hover {
+	background: rgba(200, 230, 201, 0.04);
+	color: var(--fg);
+}
+.btn-label {
+	font-size: 16px;
+	font-weight: 700;
+}
+.btn-sub {
+	font-size: 12px;
+	color: var(--fg-dim);
+	letter-spacing: 0.04em;
+	font-weight: 400;
+}
+
+#config-warning {
+	color: var(--danger);
+	border-left: 2px solid var(--danger);
+	padding-left: 10px;
+}
+
+/* Footer */
+footer {
+	margin-top: 64px;
+	padding-top: 24px;
+	border-top: 1px dashed var(--border);
+	color: var(--fg-dim);
+	font-size: 0.9em;
+}
+footer p {
+	margin: 0 0 6px;
+}

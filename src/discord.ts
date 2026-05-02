@@ -146,11 +146,7 @@ export const commandDefinitions = [
 		.setContexts(GUILD_ONLY),
 ].map((c) => c.toJSON());
 
-/**
- * Push the {@link commandDefinitions} to Discord. If `guildId` is provided,
- * registers them as guild-scoped (instant propagation, what you want in dev);
- * otherwise registers them globally (~1h propagation, what you want in prod).
- */
+// Guild-scoped registration is instant; global takes ~1h to propagate.
 export async function registerCommands(args: {
 	token: string;
 	clientId: string;
@@ -163,20 +159,12 @@ export async function registerCommands(args: {
 	await rest.put(route, { body: commandDefinitions });
 }
 
-/** Shared dependencies threaded through the client's event handlers. */
 export interface BotDeps {
 	db: DB;
-	/** Discord user id allowed to invoke the hidden /dev-fire admin command. */
 	devAdminUserId?: Snowflake | undefined;
-	/**
-	 * Discord user id that gets DM'd on guild install / subscribe / unsubscribe.
-	 * Used by {@link notifyOperator}. Falls back to {@link devAdminUserId}
-	 * at the call site.
-	 */
 	operatorUserId?: Snowflake | undefined;
 }
 
-/** Builds and configures the discord.js client; caller is responsible for `login`. */
 export function createClient(deps: BotDeps): Client {
 	const client = new Client({
 		intents: [
@@ -597,12 +585,7 @@ async function handleMention(
 
 type AlertDispatchPayload = EventPayloadByKind["alert_dispatch_ok"];
 
-/**
- * Shared core. Delivers `body` to every active subscriber, records one
- * `alert_dispatch_ok` / `alert_dispatch_fail` per recipient with the meta
- * `buildMeta(sub)` returns. Per-recipient failures are caught individually
- * and never throw to the caller.
- */
+// Per-recipient failures are caught individually and never throw to the caller.
 async function fanOut(
 	client: Client,
 	deps: BotDeps,
@@ -632,7 +615,6 @@ async function fanOut(
 	return { sent, failed };
 }
 
-/** RSS-driven level-5 incident dispatch. */
 export function fanOutAlert(
 	client: Client,
 	deps: BotDeps,
@@ -645,7 +627,6 @@ export function fanOutAlert(
 	}));
 }
 
-/** Level-poller-driven transition dispatch. */
 export function fanOutLevelChange(
 	client: Client,
 	deps: BotDeps,
@@ -659,10 +640,6 @@ export function fanOutLevelChange(
 	}));
 }
 
-/**
- * Sends `body` to a single subscriber, routing by kind: REST send to a guild
- * channel, or a DM to a user. Throws if the channel is missing or unsendable.
- */
 export async function sendToSubscriber(
 	client: Client,
 	sub: Subscriber,
@@ -678,10 +655,7 @@ export async function sendToSubscriber(
 	await user.send(body);
 }
 
-/**
- * DM the operator (if configured) with a short status line. Best-effort —
- * a closed DM, network blip, or missing operator id never throws.
- */
+// Best-effort DM to the operator — never throws.
 async function notifyOperator(client: Client, deps: BotDeps, content: string): Promise<void> {
 	const id = deps.operatorUserId ?? deps.devAdminUserId;
 	if (!id) return;
@@ -702,20 +676,12 @@ interface AnnounceArgs {
 	userTag: string;
 }
 
-/** Format the operator-facing target string. Centralised so all DMs read alike. */
-function formatTarget(
-	args: Pick<AnnounceArgs, "kind" | "guildId" | "channelId" | "userId" | "userTag">,
-): string {
+function formatTarget(args: AnnounceArgs): string {
 	return args.kind === "guild_channel"
 		? `guild_channel guild=${args.guildId} channel=${args.channelId}`
 		: `dm user=${args.userTag} (${args.userId})`;
 }
 
-/**
- * Record a successful subscribe in the events table and DM the operator.
- * One callsite per intent path (slash command guild / DM, plain DM, @-mention)
- * so the event payload and operator message can never drift apart.
- */
 function announceSubscribe(
 	client: Client,
 	deps: BotDeps,
@@ -735,7 +701,6 @@ function announceSubscribe(
 	);
 }
 
-/** Record a successful unsubscribe in the events table and DM the operator. */
 function announceUnsubscribe(client: Client, deps: BotDeps, args: AnnounceArgs): void {
 	deps.db.recordEvent({
 		kind: "unsubscribe",

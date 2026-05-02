@@ -8,15 +8,9 @@ import { childLogger } from "./log.js";
 
 const log = childLogger("db");
 
-/** A subscriber row keys on a Discord channel id (guild_channel) or user id (dm). */
 export type SubscriberKind = "guild_channel" | "dm";
 export type SubscriberStatus = "active" | "unsubscribed";
 
-/**
- * Closed set of event kinds the bot records. Adding a new kind is a one-line
- * change here plus a callsite — keeping the union closed lets the type system
- * catch typos and lets us enumerate them in queries.
- */
 export type EventKind =
 	| "startup"
 	| "shutdown"
@@ -38,7 +32,6 @@ export type EventKind =
 	| "reminder_fail"
 	| "error";
 
-/** A row in the events table. Timestamps are ISO-8601 with millisecond precision. */
 export interface EventRecord {
 	id: number;
 	ts: string;
@@ -49,19 +42,8 @@ export interface EventRecord {
 	payload: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Typed event payloads. Each EventKind has a known shape, so the discriminated
-// union below catches typos / drift at the call site rather than at read time
-// (when you're staring at a SQLite row trying to figure out what's in there).
-// ---------------------------------------------------------------------------
-
-/** Where a subscribe/unsubscribe action came from. Closed union — typo = type error. */
 export type SubscribeVia = "command" | "dm" | "mention";
-
-/** What the user meant when they sent a DM to the bot. */
 export type DmIntent = "subscribe" | "unsubscribe" | "other";
-
-/** What the user meant when they @-mentioned the bot in a guild channel. */
 export type MentionIntent = DmIntent | "status" | "help";
 
 interface AlertDispatchRssMeta {
@@ -113,16 +95,9 @@ export interface EventPayloadByKind {
 	error: { op: string; command?: string; err: unknown };
 }
 
-// Sanity: every EventKind must appear in EventPayloadByKind. If you add a kind
-// to the union above and forget the shape here, this line is a type error.
+// Adding an EventKind without extending EventPayloadByKind is a type error here.
 type _AssertCovered = EventPayloadByKind[EventKind];
 
-/**
- * Args for {@link DB.recordEvent}. Discriminated by `kind`; the payload type
- * is forced to match. Adding a new event kind requires extending both
- * {@link EventKind} and {@link EventPayloadByKind} — TypeScript will refuse
- * the call site otherwise.
- */
 export type RecordEventInput = {
 	[K in EventKind]: {
 		kind: K;
@@ -134,11 +109,9 @@ export type RecordEventInput = {
 		: { payload: EventPayloadByKind[K] });
 }[EventKind];
 
-/** A subscriber: one Discord channel or DM target receiving alerts. */
 export interface Subscriber {
 	id: number;
 	kind: SubscriberKind;
-	/** Channel id when kind=guild_channel, user id when kind=dm. */
 	discord_id: Snowflake;
 	guild_id: Snowflake | null;
 	status: SubscriberStatus;
@@ -146,12 +119,6 @@ export interface Subscriber {
 	last_reminded: string | null;
 }
 
-/**
- * Project a Subscriber onto the (guildId, channelId, userId) triple used as
- * the event-row "where did this happen" columns. Avoids inlining the same
- * `kind === "guild_channel" ? sub.discord_id : null` ternary at every event
- * recording site.
- */
 export function subscriberAddress(sub: Subscriber): {
 	guildId: Snowflake | null;
 	channelId: Snowflake | null;
@@ -164,7 +131,6 @@ export function subscriberAddress(sub: Subscriber): {
 	};
 }
 
-/** A row from seen_alerts — every RSS item the poller has ingested. */
 export interface SeenAlert {
 	guid: string;
 	title: string | null;
@@ -173,7 +139,6 @@ export interface SeenAlert {
 	ingested_at: string;
 }
 
-/** Single-row level snapshot. `emergency_level` is null until first observation. */
 export interface LevelState {
 	id: 1;
 	emergency_level: number | null;
@@ -186,15 +151,9 @@ export interface LevelState {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, "../migrations");
 
-/**
- * SQLite-backed persistence for the bot. Owns one bun:sqlite handle per
- * process. All queries are sync — bun:sqlite doesn't do async — so call
- * sites read like regular code. WAL is on by default.
- */
 export class DB {
 	private readonly db: Database;
 
-	/** Opens (or creates + migrates) the database at `path`. Pass `:memory:` for tests. */
 	constructor(path: string) {
 		if (path !== ":memory:") {
 			mkdirSync(dirname(resolve(path)), { recursive: true });
@@ -205,7 +164,6 @@ export class DB {
 		this.migrate();
 	}
 
-	/** Runs every .sql file in the migrations directory in lexical order. */
 	private migrate(): void {
 		const files = readdirSync(MIGRATIONS_DIR)
 			.filter((f) => f.endsWith(".sql"))

@@ -77,18 +77,67 @@ docker compose logs -f bot
 
 `./data` is bind-mounted — db and log are inspectable from the host. Vercel / Workers / Lambda don't fit (the gateway is a long-lived WebSocket).
 
-Subsequent deploys, from your laptop:
-
-```bash
-cp .deploy.env.example .deploy.env && $EDITOR .deploy.env
-./deploy.sh
-```
-
-`deploy.sh` SSHes once: `git fetch + reset --hard`, `docker compose build --pull`, `up -d --build --force-recreate`, re-registers slash commands, prunes stale images, prints status + tail. Same script, every time.
-
 ## // PAGES
 
 Static splash at `/docs/`. GitHub → Settings → Pages → `main` / `/docs`. The install buttons read a single `CLIENT_ID` constant in `docs/index.html`.
+
+## // REDEPLOY
+
+Every subsequent push gets shipped with the same script, from your laptop:
+
+```bash
+cp .deploy.env.example .deploy.env   # one time
+$EDITOR .deploy.env                   # set host / user / path
+./deploy.sh
+```
+
+Configure once in `.deploy.env` (gitignored via the `.env.*` rule):
+
+| var               | required | default  | purpose                                |
+|-------------------|----------|----------|----------------------------------------|
+| `DEPLOY_HOST`     | yes      | —        | SSH host (e.g. `ews.example.com`)      |
+| `DEPLOY_USER`     | yes      | —        | SSH user                               |
+| `DEPLOY_PATH`     | yes      | —        | absolute path to the checkout on host  |
+| `DEPLOY_BRANCH`   | no       | `main`   | branch to deploy                       |
+| `DEPLOY_REMOTE`   | no       | `origin` | git remote to fetch from               |
+| `DEPLOY_SSH_PORT` | no       | `22`     | non-standard SSH port                  |
+| `DEPLOY_SSH_OPTS` | no       | —        | extra ssh flags (e.g. `-i <keyfile>`)  |
+
+What it does, in one SSH session on the remote:
+
+1. `git fetch --prune ${DEPLOY_REMOTE}` and `git reset --hard ${DEPLOY_REMOTE}/${DEPLOY_BRANCH}` — clean slate, no merge surprises.
+2. `docker compose build --pull` — refresh the `oven/bun:1-debian` base.
+3. `docker compose up -d --build --force-recreate` — rebuild the image with new source and replace the container even when the image hash is unchanged (catches `.env`-only changes too).
+4. `docker compose run --rm register` — re-register slash commands. Idempotent, runs every time.
+5. `docker image prune -f` — reclaim space from the now-dangling old image.
+6. `docker compose ps` and last 30 `bot` log lines.
+
+Aborts on the remote if `.env` is missing (so the bot doesn't silently fail to boot post-deploy). Warns locally before SSHing if your `HEAD` differs from `${DEPLOY_REMOTE}/${DEPLOY_BRANCH}` — you deploy what's pushed, not your working copy.
+
+Stream the bot afterwards:
+
+```bash
+ssh $DEPLOY_USER@$DEPLOY_HOST "cd $DEPLOY_PATH && docker compose logs -f bot"
+```
+
+## // CREDITS
+
+- **Kyle McDonald** — creator of the upstream [Apocalypse Early Warning System](https://github.com/kylemcdonald/ews). This bot is a thin Discord adapter; the signal is his.
+- **Jamie Dubs** ([@jamiew](https://github.com/jamiew)) — author of this bot.
+
+```
+███████╗ █████╗ ████████╗    ██╗      █████╗ ██████╗
+██╔════╝██╔══██╗╚══██╔══╝    ██║     ██╔══██╗██╔══██╗
+█████╗  ███████║   ██║       ██║     ███████║██████╔╝
+██╔══╝  ██╔══██║   ██║       ██║     ██╔══██║██╔══██╗
+██║     ██║  ██║   ██║       ███████╗██║  ██║██████╔╝
+╚═╝     ╚═╝  ╚═╝   ╚═╝       ╚══════╝╚═╝  ╚═╝╚═════╝
+                    ____
+                   / __/___  ________ _   _____  _____
+                  / /_/ __ \/ ___/ _ \ | / / _ \/ ___/
+                 / __/ /_/ / /  /  __/ |/ /  __/ /
+                /_/  \____/_/   \___/|___/\___/_/
+```
 
 ---
 

@@ -5,6 +5,8 @@ import {
 	DM_OPT_IN_PROMPT,
 	GUILD_WELCOME,
 	HELP,
+	MENTION_INSUFFICIENT_PRIVILEGES,
+	MENTION_UNKNOWN,
 	pingPongLine,
 	SOURCE_URL,
 	statusLine,
@@ -64,7 +66,15 @@ describe("pingPongLine", () => {
 // Tone guard. These strings are user-facing; the source website is deadpan and
 // no-emoji. Lock that in so a careless edit doesn't regress the voice.
 describe("user-facing strings", () => {
-	const allCopy = [GUILD_WELCOME, HELP, DM_OPT_IN_PROMPT, ANNUAL_REMINDER].join("\n\n");
+	const allCopy = [
+		GUILD_WELCOME,
+		HELP,
+		DM_OPT_IN_PROMPT,
+		ANNUAL_REMINDER,
+		MENTION_UNKNOWN,
+		MENTION_INSUFFICIENT_PRIVILEGES,
+		alertPayload({ title: "x", link: "y", pubDate: "z" }),
+	].join("\n\n");
 
 	it("contains no exclamation points", () => {
 		expect(allCopy).not.toMatch(/!/);
@@ -83,6 +93,16 @@ describe("user-facing strings", () => {
 	it("welcome explains how to subscribe and how to remove the bot", () => {
 		expect(GUILD_WELCOME).toContain("/subscribe");
 		expect(GUILD_WELCOME).toMatch(/Server Settings.*Integrations.*Remove/);
+	});
+
+	it("welcome advertises the @-mention surface", () => {
+		expect(GUILD_WELCOME).toMatch(/@-mention/);
+	});
+
+	it("mention-error strings name the operator commands they're rejecting", () => {
+		expect(MENTION_UNKNOWN).toContain("subscribe");
+		expect(MENTION_UNKNOWN).toContain("unsubscribe");
+		expect(MENTION_INSUFFICIENT_PRIVILEGES).toContain("ManageGuild");
 	});
 
 	it("annual reminder offers a way out", () => {

@@ -15,8 +15,7 @@ const MIN_LEVEL: LogLevel = isLevel(process.env["LOG_LEVEL"])
 		? "error"
 		: "info";
 
-// In tests we never write a file. Otherwise default to ./data/ews.log so
-// `LOG_FILE` is opt-out, not opt-in. Set LOG_FILE="" to disable.
+// LOG_FILE is opt-out: empty string disables, unset uses default.
 const LOG_FILE: string | undefined = IS_TEST
 	? undefined
 	: process.env["LOG_FILE"] !== undefined
@@ -27,15 +26,15 @@ if (LOG_FILE) {
 	try {
 		mkdirSync(dirname(LOG_FILE), { recursive: true });
 	} catch {
-		// best-effort; if we can't create it, we'll just log to stdout
+		// fall back to stdout-only
 	}
 }
 
 const ANSI = {
-	debug: "\x1b[90m", // grey
-	info: "\x1b[36m", // cyan
-	warn: "\x1b[33m", // yellow
-	error: "\x1b[31m", // red
+	debug: "\x1b[90m",
+	info: "\x1b[36m",
+	warn: "\x1b[33m",
+	error: "\x1b[31m",
 	reset: "\x1b[0m",
 } as const;
 
@@ -63,7 +62,7 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
 		try {
 			appendFileSync(LOG_FILE, `${json}\n`);
 		} catch {
-			// never let logging take the process down
+			// logging must never crash the process
 		}
 	}
 
@@ -74,19 +73,16 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
 		return;
 	}
 
-	// Dev: pretty single-line with ANSI color.
 	const ctxStr = context && Object.keys(context).length > 0 ? ` ${safeStringify(context)}` : "";
 	const tag = level.toUpperCase().padEnd(5);
 	process.stdout.write(`${ANSI[level]}${ts} ${tag}${ANSI.reset} ${message}${ctxStr}\n`);
 }
 
-/** Logger surface — call sites stay tiny. */
 export interface Logger {
 	debug(message: string, context?: Record<string, unknown>): void;
 	info(message: string, context?: Record<string, unknown>): void;
 	warn(message: string, context?: Record<string, unknown>): void;
 	error(message: string, context?: Record<string, unknown>): void;
-	/** Returns a new logger that prepends the given bindings to every record. */
 	child(bindings: Record<string, unknown>): Logger;
 }
 
@@ -102,10 +98,8 @@ function makeLogger(bindings: Record<string, unknown> = {}): Logger {
 	};
 }
 
-/** Root application logger. Prefer {@link childLogger} for callers in modules. */
 export const log: Logger = makeLogger();
 
-/** Module-scoped logger. Records carry `module=<name>`. */
 export function childLogger(module: string): Logger {
 	return log.child({ module });
 }

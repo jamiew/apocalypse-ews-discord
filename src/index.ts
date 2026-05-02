@@ -30,7 +30,6 @@ async function main() {
 		payload: { rss: env.EWS_RSS_URL, dashboard: env.EWS_DASHBOARD_URL },
 	});
 
-	// RSS poll — level-5 incidents with full title/link/pubDate.
 	const pollLog = childLogger("poller");
 	const pollTask = cron.schedule(env.POLL_CRON, async () => {
 		try {
@@ -48,8 +47,6 @@ async function main() {
 		}
 	});
 
-	// Dashboard JSON poll — emergencyLevel transitions for ALL levels (1..5),
-	// including drop-back-to-normal events. Runs on the same cadence as RSS.
 	const levelLog = childLogger("level");
 	const levelTask = cron.schedule(env.POLL_CRON, async () => {
 		try {
@@ -71,7 +68,6 @@ async function main() {
 		}
 	});
 
-	// Daily annual-reminder sweep.
 	const reminderLog = childLogger("reminders");
 	const reminderTask = cron.schedule(env.REMINDER_CRON, async () => {
 		try {

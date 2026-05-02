@@ -1,5 +1,4 @@
-// All user-facing strings. Tone: deadpan, technical, no emojis, no exclamation
-// points. Wryness comes from the framing, never from the prose.
+// Tone: deadpan, technical, no emojis, no exclamation points. Wryness from framing.
 
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
 
@@ -72,22 +71,15 @@ export function alertPayload(item: AlertItem): string {
 		.join("\n");
 }
 
-/** Snapshot of an upstream emergency-level transition. */
 export interface LevelChange {
-	level: number; // 1..5 (new value)
-	prevLevel: number | null; // 1..5 or null if never observed
-	alertLevel: string | null; // upstream's text label, e.g. "elevated", "alarm"
+	level: number;
+	prevLevel: number | null;
+	alertLevel: string | null;
 	asOf: string | null;
 	zScore: number | null;
 }
 
-/**
- * Header for a level transition. Increasing urgency as the level rises;
- * "Stand-down" when it falls. The DEFCON-style alarm header is reserved
- * for level 5 — same string the RSS-driven {@link alertPayload} uses, so
- * the level-poller and the RSS poller don't say different things on the
- * same event.
- */
+// Level 5 reuses alertPayload's header so RSS and level-poller don't diverge on the same event.
 function levelHeader(level: number, rising: boolean): string {
 	if (!rising) return `Stand-down. Emergency level returned to ${level}.`;
 	switch (level) {
@@ -104,7 +96,6 @@ function levelHeader(level: number, rising: boolean): string {
 	}
 }
 
-/** One-shot Discord-message body for a level transition. */
 export function levelChangePayload(c: LevelChange): string {
 	const rising = c.prevLevel == null || c.level > c.prevLevel;
 	const fromTo =

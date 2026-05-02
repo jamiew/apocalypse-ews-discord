@@ -6,11 +6,7 @@ import { childLogger } from "./log.js";
 
 const log = childLogger("reminders");
 
-/**
- * Sweeps active subscribers due for an annual reminder, sends the nudge, and
- * stamps `last_reminded`. Returns counts; per-subscriber failures are logged
- * and recorded as `reminder_fail` events but never throw to the caller.
- */
+// Per-subscriber failures are recorded and swallowed — never throws.
 export async function sendDueReminders(args: {
 	db: DB;
 	client: Client;

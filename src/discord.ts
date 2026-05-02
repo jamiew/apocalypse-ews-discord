@@ -1,4 +1,5 @@
 import {
+	ApplicationIntegrationType,
 	ChannelType,
 	type ChatInputCommandInteraction,
 	Client,
@@ -78,38 +79,57 @@ export function pickWelcomeChannelFrom(
 	return sendable[0] ?? null;
 }
 
-// All commands are guild-only; DMs use plain message keywords (see classifyDmText).
+// Commands work in three contexts: server channels (guild install), DMs with
+// the bot (user install or guild install), and other private channels (user
+// install). The handler reads `interaction.guildId` to decide whether the
+// command targets a guild channel or the invoking user.
+const allContexts = (): InteractionContextType[] => [
+	InteractionContextType.Guild,
+	InteractionContextType.BotDM,
+	InteractionContextType.PrivateChannel,
+];
 const guildOnly = (): InteractionContextType[] => [InteractionContextType.Guild];
+const allInstalls = (): ApplicationIntegrationType[] => [
+	ApplicationIntegrationType.GuildInstall,
+	ApplicationIntegrationType.UserInstall,
+];
 
 export const commandDefinitions = [
 	new SlashCommandBuilder()
 		.setName("subscribe")
-		.setDescription("Receive emergency level 5 alerts in a channel.")
+		.setDescription("Receive emergency level 5 alerts (this channel in a server, or you in a DM).")
 		.addChannelOption((opt) =>
 			opt
 				.setName("channel")
-				.setDescription("Channel to post alerts in (defaults to current).")
+				.setDescription("Server only: channel to post alerts in (defaults to current).")
 				.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
 		)
+		// ManageGuild only gates the command in guild contexts; in DMs / private
+		// channels the user is operating on themselves, so no permission is needed.
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setContexts(guildOnly()),
+		.setIntegrationTypes(allInstalls())
+		.setContexts(allContexts()),
 	new SlashCommandBuilder()
 		.setName("unsubscribe")
-		.setDescription("Stop receiving alerts in this channel.")
+		.setDescription("Stop receiving alerts (this channel in a server, or you in a DM).")
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setContexts(guildOnly()),
+		.setIntegrationTypes(allInstalls())
+		.setContexts(allContexts()),
 	new SlashCommandBuilder()
 		.setName("status")
-		.setDescription("Show subscription state and the last alert on record.")
-		.setContexts(guildOnly()),
+		.setDescription("Show subscription state and the last incident on record.")
+		.setIntegrationTypes(allInstalls())
+		.setContexts(allContexts()),
 	new SlashCommandBuilder()
 		.setName("help")
 		.setDescription("How to use the Apocalypse EWS bot.")
-		.setContexts(guildOnly()),
+		.setIntegrationTypes(allInstalls())
+		.setContexts(allContexts()),
 	new SlashCommandBuilder()
 		.setName("dev-fire")
 		.setDescription("Admin only — synthesize an alert event for testing.")
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+		.setIntegrationTypes(allInstalls())
 		.setContexts(guildOnly()),
 ].map((c) => c.toJSON());
 
@@ -255,74 +275,93 @@ async function cmdSubscribe(
 	interaction: ChatInputCommandInteraction,
 	deps: BotDeps,
 ): Promise<void> {
-	if (!interaction.guildId) {
-		await interaction.reply({
-			content: "Run this command in a server.",
-			ephemeral: true,
+	if (interaction.guildId) {
+		const target = interaction.options.getChannel("channel") ?? interaction.channel;
+		if (!target || !("id" in target)) {
+			await interaction.reply({ content: "Could not resolve a channel.", ephemeral: true });
+			return;
+		}
+		const result = deps.db.upsertSubscribed({
+			kind: "guild_channel",
+			discordId: target.id,
+			guildId: interaction.guildId,
+			now: new Date().toISOString(),
 		});
+		if (!result.created && !result.reactivated) {
+			await interaction.reply({ content: GUILD_ALREADY_SUBSCRIBED, ephemeral: true });
+			return;
+		}
+		deps.db.recordEvent({
+			kind: "subscribe",
+			guildId: interaction.guildId,
+			channelId: target.id,
+			userId: interaction.user.id,
+			payload: { kind: "guild_channel", reactivated: result.reactivated },
+		});
+		await interaction.reply({ content: GUILD_SUBSCRIBE_OK });
 		return;
 	}
-	const target = interaction.options.getChannel("channel") ?? interaction.channel;
-	if (!target || !("id" in target)) {
-		await interaction.reply({
-			content: "Could not resolve a channel.",
-			ephemeral: true,
-		});
-		return;
-	}
+
+	// DM / private channel: subscribe the invoking user to DM alerts.
+	const userId = interaction.user.id;
 	const result = deps.db.upsertSubscribed({
-		kind: "guild_channel",
-		discordId: target.id,
-		guildId: interaction.guildId,
+		kind: "dm",
+		discordId: userId,
+		guildId: null,
 		now: new Date().toISOString(),
 	});
-	if (!result.created && !result.reactivated) {
-		await interaction.reply({
-			content: GUILD_ALREADY_SUBSCRIBED,
-			ephemeral: true,
+	const fresh = result.created || result.reactivated;
+	if (fresh) {
+		deps.db.recordEvent({
+			kind: "subscribe",
+			userId,
+			payload: { kind: "dm", reactivated: result.reactivated, via: "command" },
 		});
-		return;
 	}
-	deps.db.recordEvent({
-		kind: "subscribe",
-		guildId: interaction.guildId,
-		channelId: target.id,
-		userId: interaction.user.id,
-		payload: { kind: "guild_channel", reactivated: result.reactivated },
-	});
-	await interaction.reply({ content: GUILD_SUBSCRIBE_OK });
+	await interaction.reply({ content: fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED });
 }
 
 async function cmdUnsubscribe(
 	interaction: ChatInputCommandInteraction,
 	deps: BotDeps,
 ): Promise<void> {
-	if (!interaction.channelId) {
+	if (interaction.guildId) {
+		if (!interaction.channelId) return;
+		const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
+		if (removed) {
+			deps.db.recordEvent({
+				kind: "unsubscribe",
+				guildId: interaction.guildId,
+				channelId: interaction.channelId,
+				userId: interaction.user.id,
+				payload: { kind: "guild_channel" },
+			});
+		}
 		await interaction.reply({
-			content: "Run this command in a server channel.",
-			ephemeral: true,
+			content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
+			ephemeral: !removed,
 		});
 		return;
 	}
-	const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
+
+	const userId = interaction.user.id;
+	const removed = deps.db.markUnsubscribed("dm", userId);
 	if (removed) {
 		deps.db.recordEvent({
 			kind: "unsubscribe",
-			guildId: interaction.guildId,
-			channelId: interaction.channelId,
-			userId: interaction.user.id,
-			payload: { kind: "guild_channel" },
+			userId,
+			payload: { kind: "dm", via: "command" },
 		});
 	}
-	await interaction.reply({
-		content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
-		ephemeral: !removed,
-	});
+	await interaction.reply({ content: removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED });
 }
 
 async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps): Promise<void> {
-	if (!interaction.channelId) return;
-	const sub = deps.db.findSubscriber("guild_channel", interaction.channelId);
+	const sub = interaction.guildId
+		? interaction.channelId
+			? deps.db.findSubscriber("guild_channel", interaction.channelId)
+			: undefined
+		: deps.db.findSubscriber("dm", interaction.user.id);
 	await interaction.reply({
 		content: statusLine({
 			subscribed: sub?.status === "active",

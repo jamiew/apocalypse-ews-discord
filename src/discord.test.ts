@@ -1,4 +1,9 @@
-import { ChannelType, InteractionContextType, PermissionFlagsBits } from "discord.js";
+import {
+	ApplicationIntegrationType,
+	ChannelType,
+	InteractionContextType,
+	PermissionFlagsBits,
+} from "discord.js";
 import { describe, expect, it } from "vitest";
 import {
 	classifyDmText,
@@ -75,9 +80,23 @@ describe("commandDefinitions", () => {
 		expect(names).toEqual(["dev-fire", "help", "status", "subscribe", "unsubscribe"]);
 	});
 
-	it("restricts every command to guild contexts (DMs use plain-message keywords)", () => {
+	it("supports both guild + user installs and runs in every context (except dev-fire which is guild-only)", () => {
+		const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
+		const allCtx = [
+			InteractionContextType.Guild,
+			InteractionContextType.BotDM,
+			InteractionContextType.PrivateChannel,
+		];
+		expect(byName.subscribe?.contexts).toEqual(allCtx);
+		expect(byName.unsubscribe?.contexts).toEqual(allCtx);
+		expect(byName.status?.contexts).toEqual(allCtx);
+		expect(byName.help?.contexts).toEqual(allCtx);
+		// dev-fire stays guild-only — admin testing happens in a server.
+		expect(byName["dev-fire"]?.contexts).toEqual([InteractionContextType.Guild]);
+		// Every command supports both install types.
+		const both = [ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall];
 		for (const c of commandDefinitions) {
-			expect(c.contexts).toEqual([InteractionContextType.Guild]);
+			expect(c.integration_types).toEqual(both);
 		}
 	});
 

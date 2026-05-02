@@ -1,0 +1,44 @@
+# Docker Compose for the Apocalypse EWS Discord bot.
+#
+# Quickstart:
+#   cp .env.example .env && $EDITOR .env
+#   mkdir -p data
+#   docker compose up -d --build
+#   docker compose run --rm register   # after editing slash command defs
+#   docker compose logs -f bot
+#
+# Persistent state (./data) is bind-mounted so an operator can inspect
+# the SQLite db and tail the JSON log directly from the host:
+#   sqlite3 data/ews.db 'SELECT * FROM events ORDER BY id DESC LIMIT 20;'
+#   tail -f data/ews.log | jq .
+
+services:
+  bot:
+    build: .
+    image: apocalypse-ews-bot:local
+    container_name: apocalypse-ews-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    # Stdout still streams via `docker compose logs`. The file log at
+    # /app/data/ews.log is the durable copy.
+    healthcheck:
+      # The bot has no HTTP surface, so health = process is alive.
+      # Compose treats a non-zero exit as unhealthy via restart policy.
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+  # One-shot. Run with `docker compose run --rm register` after deploying
+  # any change to commandDefinitions in src/discord.ts. Profiled so a
+  # plain `docker compose up` doesn't trigger it.
+  register:
+    build: .
+    image: apocalypse-ews-bot:local
+    profiles: [tools]
+    env_file: .env
+    command: ["node", "dist/scripts/register-commands.js"]
+    volumes:
+      - ./data:/app/data

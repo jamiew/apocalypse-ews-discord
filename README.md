@@ -68,13 +68,19 @@ sqlite3 data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id DESC LIMIT
 
 ## // DEPLOY
 
-VPS via the included `systemd/ews-bot.service` unit. Or:
+VPS via the included `systemd/ews-bot.service` unit. Or `compose.yaml`:
 
 ```bash
-docker run -d --name ews -v ews-data:/app/data --env-file .env apocalypse-ews
+cp .env.example .env && $EDITOR .env
+mkdir -p data
+docker compose up -d --build
+docker compose run --rm register   # after editing slash command defs
+docker compose logs -f bot
 ```
 
-The volume holds db + log file both. Vercel / Workers / Lambda don't fit — the gateway is a long-lived WebSocket. HTTP-interactions port is possible (Turso/Neon for storage, lose DM ping/pong + auto-welcome).
+`./data` is bind-mounted from the host — `data/ews.db` and `data/ews.log` are inspectable directly with `sqlite3` and `tail -f`. Stdout still streams via `docker compose logs`.
+
+Vercel / Workers / Lambda don't fit — the gateway is a long-lived WebSocket. HTTP-interactions port is possible (Turso/Neon for storage, lose DM ping/pong + auto-welcome).
 
 ## // PAGES
 

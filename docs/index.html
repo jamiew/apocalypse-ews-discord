@@ -104,7 +104,7 @@
 
 			<section class="panel">
 				<div class="install-grid">
-					<a class="btn btn-primary" id="btn-server" href="#" rel="noopener">
+					<a class="btn" id="btn-server" href="#" rel="noopener">
 						<span class="btn-label">Add to server ▸</span>
 						<span class="btn-sub">guild install · slash · @-mention</span>
 					</a>
@@ -134,14 +134,19 @@
 
 			<section class="panel">
 				<h2 class="dispatch">// help</h2>
-				<pre>
-/subscribe [channel]    designate alert recipient (this channel, or you)
-/unsubscribe            stand down
-/status                 subscription state + last incident
-/help                   refresher
-
-@-mention with subscribe / unsubscribe / status / help — same effect.
-In a DM, just send the word.</pre>
+				<dl class="cmds">
+					<dt><code>/subscribe [channel]</code></dt>
+					<dd>designate alert recipient (this channel, or you)</dd>
+					<dt><code>/unsubscribe</code></dt>
+					<dd>stand down</dd>
+					<dt><code>/status</code></dt>
+					<dd>subscription state + last incident</dd>
+					<dt><code>/help</code></dt>
+					<dd>refresher</dd>
+				</dl>
+				<p class="small muted">
+					@-mention the bot with the same word — same effect. In a DM, just send the word.
+				</p>
 			</section>
 
 			<details class="panel more">

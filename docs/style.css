@@ -186,6 +186,35 @@ details[open] > summary.dispatch::before {
 	border: 1px solid var(--panel-border);
 	background: #fff;
 }
+@media (max-width: 520px) {
+	.hero-row {
+		grid-template-columns: 64px 1fr;
+		gap: 12px;
+	}
+	.hero-row img {
+		width: 64px;
+		height: 64px;
+	}
+	h1 {
+		font-size: 1.4rem;
+	}
+	.hero .banner {
+		font-size: 9px;
+	}
+	.install-grid {
+		grid-template-columns: 1fr;
+	}
+	body {
+		margin: 4px;
+	}
+	.app-shell {
+		padding: 4px 4px 16px;
+		gap: 8px;
+	}
+	.panel {
+		padding: 12px;
+	}
+}
 .title-block h1 {
 	margin-bottom: 4px;
 }
@@ -217,49 +246,49 @@ details[open] > summary.dispatch::before {
 	}
 }
 
-/* Install buttons — square, bordered, in the print register. */
+/* Install buttons — beveled like a classic 90s OS button: light top/left,
+ * dark bottom/right. Both buttons identical so neither feels secondary. */
 .install-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 12px;
 }
-@media (max-width: 640px) {
-	.install-grid {
-		grid-template-columns: 1fr;
-	}
-	.hero-row {
-		grid-template-columns: 64px 1fr;
-	}
-	.hero-row img {
-		width: 64px;
-		height: 64px;
-	}
-}
 .btn {
 	display: block;
-	padding: 12px 14px;
-	border: 1px solid var(--panel-border);
-	background: #efefef;
+	padding: 14px 16px;
+	background: var(--banner-bg);
 	color: var(--page-text);
 	text-decoration: none;
 	font-family: var(--body);
+	border: 0;
+	border-top: 2px solid #fff;
+	border-left: 2px solid #fff;
+	border-right: 2px solid #888;
+	border-bottom: 2px solid #888;
+	box-shadow: 0 0 0 1px var(--panel-border);
+	transition:
+		background-color 80ms linear,
+		transform 80ms linear;
 }
 .btn:visited {
 	color: var(--page-text);
 }
 .btn:hover {
-	background: #e3e3e3;
-}
-.btn-primary {
-	background: var(--banner-bg);
-}
-.btn-primary:hover {
 	background: #ffe690;
+	text-decoration: none;
+}
+.btn:active {
+	background: #f5dc60;
+	border-top-color: #888;
+	border-left-color: #888;
+	border-right-color: #fff;
+	border-bottom-color: #fff;
+	transform: translate(1px, 1px);
 }
 .btn-label {
 	display: block;
 	font-weight: 700;
-	font-size: 1rem;
+	font-size: 1.05rem;
 	margin-bottom: 2px;
 }
 .btn-sub {
@@ -296,7 +325,7 @@ details[open] > summary.dispatch::before {
 	outline-offset: 2px;
 }
 
-/* Pre blocks for help / payload. Square, bordered, courier inside. */
+/* Pre blocks for payload. Square, bordered, courier inside. */
 pre {
 	font-family: var(--mono);
 	background: #fff;
@@ -309,6 +338,37 @@ pre {
 }
 pre.payload {
 	background: var(--banner-bg);
+}
+
+/* Help list — semantic <dl> instead of fixed-width <pre>; wraps cleanly on
+ * narrow screens. Two-column on desktop, stacked on mobile. */
+.cmds {
+	margin: 0 0 0.5rem;
+	display: grid;
+	grid-template-columns: minmax(0, max-content) 1fr;
+	column-gap: 16px;
+	row-gap: 6px;
+	align-items: baseline;
+}
+.cmds dt {
+	font-family: var(--mono);
+	font-size: 0.92rem;
+}
+.cmds dt code {
+	background: transparent;
+}
+.cmds dd {
+	margin: 0;
+	color: var(--page-muted);
+}
+@media (max-width: 520px) {
+	.cmds {
+		grid-template-columns: 1fr;
+		row-gap: 2px;
+	}
+	.cmds dd {
+		margin: 0 0 6px 16px;
+	}
 }
 
 /* <details> open state spacing. */

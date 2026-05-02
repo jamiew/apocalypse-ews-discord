@@ -4,16 +4,13 @@ import { z } from "zod";
 import type { AlertItem } from "./copy.js";
 import type { DB } from "./db.js";
 
-/** A new alert item from the RSS feed, with a stable guid for dedup. */
 export interface NewAlert extends AlertItem {
 	guid: string;
 }
 
 const parser = new RSSParser({ timeout: 15_000 });
 
-// rss-parser provides TypeScript types, but those are compile-time only — the
-// returned data is whatever the upstream XML had. Validate at the boundary so
-// a malformed feed doesn't silently produce nonsense rows downstream.
+// rss-parser's types are compile-time only; validate the upstream XML at the boundary.
 const RssItem = z
 	.object({
 		guid: z.string().optional(),
@@ -32,14 +29,12 @@ const RssFeed = z
 
 type RssItemShape = z.infer<typeof RssItem>;
 
-/** Falls back to a hash if the feed item omits `<guid>`. */
 function deriveGuid(item: RssItemShape): string {
 	if (item.guid?.trim()) return item.guid.trim();
 	const basis = `${item.link ?? ""}|${item.pubDate ?? ""}|${item.title ?? ""}`;
 	return createHash("sha1").update(basis).digest("hex");
 }
 
-/** Fetch and validate the RSS feed at the given URL. Throws on malformed feeds. */
 async function fetchFeed(url: string): Promise<NewAlert[]> {
 	const raw = await parser.parseURL(url);
 	const feed = RssFeed.parse(raw);
@@ -58,7 +53,7 @@ export async function pollOnce(args: {
 }): Promise<NewAlert[]> {
 	const items = await fetchFeed(args.url);
 	const fresh: NewAlert[] = [];
-	// Iterate oldest → newest so multiple new items dispatch in chronological order.
+	// Oldest → newest so multiple new items dispatch in chronological order.
 	for (const item of [...items].reverse()) {
 		if (args.db.hasSeenAlert(item.guid)) continue;
 		args.db.recordSeenAlert({

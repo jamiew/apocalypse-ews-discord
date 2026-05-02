@@ -4,17 +4,12 @@ const schema = z.object({
 	DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
 	DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
 	DEV_ADMIN_USER_ID: z.string().optional(),
-	// If set, the bot DMs this user when it's added to a new guild and on every
-	// subscribe / unsubscribe. Falls back to DEV_ADMIN_USER_ID if unset.
+	// Falls back to DEV_ADMIN_USER_ID when unset.
 	OPERATOR_USER_ID: z.string().optional(),
-	// If set, `pnpm register-commands` registers slash commands to this guild
-	// only (instant propagation). Unset = global registration (~1h propagation).
+	// Set for instant slash-command propagation in dev; unset = global (~1h).
 	TEST_GUILD_ID: z.string().optional(),
 	DATABASE_PATH: z.string().default("./data/ews.db"),
 	EWS_RSS_URL: z.url().default("https://ews.kylemcdonald.net/rss.xml"),
-	// Upstream dashboard JSON — has `current.emergencyLevel` (1..5). The bot
-	// polls this on the same cadence as the RSS feed and announces every
-	// level transition. The R2 URL below is what the upstream dashboard reads.
 	EWS_DASHBOARD_URL: z
 		.url()
 		.default("https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json"),
@@ -22,17 +17,12 @@ const schema = z.object({
 	REMINDER_CRON: z.string().default("0 13 * * *"),
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
-	// Defaults to ./data/ews.log. Set LOG_FILE="" to disable file output.
+	// Empty string disables file output.
 	LOG_FILE: z.string().optional(),
 });
 
-/** Validated environment shape for the bot process. */
 export type Env = z.infer<typeof schema>;
 
-/**
- * Parses `process.env` against the schema. Throws an Error with a multi-line
- * summary of every invalid field — boot fails loudly, not silently.
- */
 export function loadEnv(): Env {
 	const parsed = schema.safeParse(process.env);
 	if (!parsed.success) {

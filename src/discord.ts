@@ -446,6 +446,7 @@ async function cmdDevFire(
 	}
 	await interaction.reply({ content: "Firing test alert.", ephemeral: true });
 	await fanOutAlert(client, deps, {
+		guid: `dev-fire-${Date.now()}`,
 		title: "Test alert (dev-fire).",
 		link: "https://ews.kylemcdonald.net/",
 		pubDate: new Date().toUTCString(),
@@ -621,7 +622,7 @@ async function handleMention(
 export async function fanOutAlert(
 	client: Client,
 	deps: BotDeps,
-	alert: AlertItem & { guid?: string },
+	alert: AlertItem & { guid: string },
 ): Promise<{ sent: number; failed: number }> {
 	const subs = deps.db.listActive();
 	let sent = 0;
@@ -639,7 +640,7 @@ export async function fanOutAlert(
 			deps.db.recordEvent({
 				kind: "alert_dispatch_ok",
 				...eventBase,
-				payload: { guid: alert.guid, kind: sub.kind },
+				payload: { source: "rss", guid: alert.guid, kind: sub.kind },
 			});
 		} catch (err) {
 			failed++;
@@ -647,7 +648,7 @@ export async function fanOutAlert(
 			deps.db.recordEvent({
 				kind: "alert_dispatch_fail",
 				...eventBase,
-				payload: { guid: alert.guid, kind: sub.kind, err },
+				payload: { source: "rss", guid: alert.guid, kind: sub.kind, err },
 			});
 		}
 	}

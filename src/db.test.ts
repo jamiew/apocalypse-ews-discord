@@ -202,24 +202,30 @@ describe("DB", () => {
 			db.recordEvent({
 				kind: "subscribe",
 				userId: "u1",
-				payload: { kind: "dm", reactivated: false },
+				payload: { kind: "dm", via: "command", reactivated: false },
 			});
 			db.recordEvent({
 				kind: "alert_seen",
-				payload: { guid: "g1", title: "Alert." },
+				payload: { guid: "g1", title: "Alert.", link: null, pubDate: null },
 			});
 			const recent = db.recentEvents();
 			expect(recent.map((r) => r.kind)).toEqual(["alert_seen", "subscribe"]);
 			const subscribe = recent.find((r) => r.kind === "subscribe");
 			assert(subscribe);
 			expect(subscribe.user_id).toBe("u1");
-			expect(subscribe.payload).toBe(JSON.stringify({ kind: "dm", reactivated: false }));
+			expect(subscribe.payload).toBe(
+				JSON.stringify({ kind: "dm", via: "command", reactivated: false }),
+			);
 		});
 
 		it("countEvents filters by kind and optional since timestamp", () => {
-			db.recordEvent({ kind: "command" });
-			db.recordEvent({ kind: "command" });
-			db.recordEvent({ kind: "subscribe", userId: "u1" });
+			db.recordEvent({ kind: "command", payload: { name: "subscribe", options: [] } });
+			db.recordEvent({ kind: "command", payload: { name: "status", options: [] } });
+			db.recordEvent({
+				kind: "subscribe",
+				userId: "u1",
+				payload: { kind: "dm", via: "command", reactivated: false },
+			});
 			expect(db.countEvents("command")).toBe(2);
 			expect(db.countEvents("subscribe")).toBe(1);
 			expect(db.countEvents("dm_in")).toBe(0);
@@ -231,7 +237,7 @@ describe("DB", () => {
 		it("serializes Error objects in payload via the replacer", () => {
 			db.recordEvent({
 				kind: "alert_dispatch_fail",
-				payload: { err: new Error("nope") },
+				payload: { source: "rss", guid: "g1", kind: "dm", err: new Error("nope") },
 			});
 			const [row] = db.recentEvents(1);
 			assert(row?.payload);
@@ -242,7 +248,9 @@ describe("DB", () => {
 		it("recordEvent failures do not throw to the caller", () => {
 			db.close();
 			// after close, the underlying prepare/run will throw; recordEvent must swallow it
-			expect(() => db.recordEvent({ kind: "error" })).not.toThrow();
+			expect(() =>
+				db.recordEvent({ kind: "error", payload: { op: "test", err: "x" } }),
+			).not.toThrow();
 			// reopen for the rest of the test lifecycle
 			db = new DB(":memory:");
 		});

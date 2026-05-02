@@ -49,14 +49,91 @@ export interface EventRecord {
 	payload: string | null;
 }
 
-/** Args for {@link DB.recordEvent}. Payload is JSON-encoded with Error-aware shaping. */
-export interface RecordEventInput {
-	kind: EventKind;
-	guildId?: Snowflake | null;
-	channelId?: Snowflake | null;
-	userId?: Snowflake | null;
-	payload?: Record<string, unknown> | null;
+// ---------------------------------------------------------------------------
+// Typed event payloads. Each EventKind has a known shape, so the discriminated
+// union below catches typos / drift at the call site rather than at read time
+// (when you're staring at a SQLite row trying to figure out what's in there).
+// ---------------------------------------------------------------------------
+
+type SubscribeVia = "command" | "dm" | "mention";
+type DmIntentLiteral = "subscribe" | "unsubscribe" | "other";
+type MentionIntentLiteral = DmIntentLiteral | "status" | "help";
+
+/** Provenance for an alert dispatch — RSS item or level-poller transition. */
+type DispatchSource = "rss" | "level_change";
+
+interface AlertDispatchRssMeta {
+	source: "rss";
+	guid: string;
+	kind: SubscriberKind;
 }
+interface AlertDispatchLevelMeta {
+	source: "level_change";
+	level: number;
+	prevLevel: number | null;
+	kind: SubscriberKind;
+}
+type AlertDispatchOkPayload = AlertDispatchRssMeta | AlertDispatchLevelMeta;
+type AlertDispatchFailPayload = AlertDispatchOkPayload & { err: unknown };
+
+/** Closed map: kind → expected payload shape. */
+export interface EventPayloadByKind {
+	startup: { rss: string; dashboard?: string };
+	shutdown: { signal: string };
+	guild_create: { name: string; memberCount: number };
+	guild_delete: { name: string };
+	guild_welcome_sent: undefined;
+	command: { name: string; options: ReadonlyArray<{ name: string; value: unknown }> };
+	subscribe: { kind: SubscriberKind; via: SubscribeVia; reactivated: boolean };
+	unsubscribe: { kind: SubscriberKind; via: SubscribeVia };
+	dm_in: { content: string; intent: DmIntentLiteral };
+	dm_out: { content: string };
+	mention_in: { content: string; stripped: string; intent: MentionIntentLiteral };
+	mention_out: { content: string };
+	alert_seen: {
+		guid: string;
+		title: string | null;
+		link: string | null;
+		pubDate: string | null;
+	};
+	alert_dispatch_ok: AlertDispatchOkPayload;
+	alert_dispatch_fail: AlertDispatchFailPayload;
+	level_change: {
+		level: number;
+		prevLevel: number | null;
+		alertLevel: string | null;
+		asOf: string | null;
+		zScore: number | null;
+		body: string;
+	};
+	reminder_ok: { kind: SubscriberKind; subscribedAt: string };
+	reminder_fail: { kind: SubscriberKind; err: unknown };
+	error: { op: string; command?: string; err: unknown };
+}
+
+// Sanity: every EventKind must appear in EventPayloadByKind. If you add a kind
+// to the union above and forget the shape here, this line is a type error.
+type _AssertCovered = EventPayloadByKind[EventKind];
+
+/**
+ * Args for {@link DB.recordEvent}. Discriminated by `kind`; the payload type
+ * is forced to match. Adding a new event kind requires extending both
+ * {@link EventKind} and {@link EventPayloadByKind} — TypeScript will refuse
+ * the call site otherwise.
+ */
+export type RecordEventInput = {
+	[K in EventKind]: {
+		kind: K;
+		guildId?: Snowflake | null;
+		channelId?: Snowflake | null;
+		userId?: Snowflake | null;
+	} & (EventPayloadByKind[K] extends undefined
+		? { payload?: undefined }
+		: { payload: EventPayloadByKind[K] });
+}[EventKind];
+
+// re-export for callers that want to type-only-import the literal unions
+export type { DispatchSource, DmIntentLiteral, MentionIntentLiteral, SubscribeVia };
 
 /** A subscriber: one Discord channel or DM target receiving alerts. */
 export interface Subscriber {

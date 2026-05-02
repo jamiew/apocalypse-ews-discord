@@ -4,10 +4,10 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
 
-		<title>Apocalypse EWS / Discord bot — emergency level 5 alerts</title>
+		<title>Apocalypse EWS / Discord bot — every level transition announced</title>
 		<meta
 			name="description"
-			content="A Discord bot that announces when the Apocalypse Early Warning System reaches emergency level 5. Tracked-aircraft anomalies over a rolling 24-hour window. Most days nothing happens."
+			content="A Discord bot that announces every emergency-level transition from the Apocalypse Early Warning System. Tracked-aircraft anomalies over a rolling 24-hour window. Increasing urgency as it climbs."
 		/>
 		<meta name="author" content="jamiew" />
 		<meta name="theme-color" content="#dbd4cc" />
@@ -26,7 +26,7 @@
 		<meta property="og:title" content="Apocalypse EWS / Discord bot" />
 		<meta
 			property="og:description"
-			content="When the upstream system reaches emergency level 5, this bot announces it in your subscribed channels and DMs. Otherwise silent."
+			content="Every emergency-level transition announced in your subscribed Discord channels and DMs. Increasing urgency as it climbs. Most days the level stays at 1."
 		/>
 		<meta property="og:url" content="https://jamiew.github.io/apocalypse-ews-discord/" />
 		<meta
@@ -46,7 +46,7 @@
 		<meta name="twitter:title" content="Apocalypse EWS / Discord bot" />
 		<meta
 			name="twitter:description"
-			content="Emergency level 5 alerts in your Discord. Tracked-aircraft anomalies, rolling 24h. Otherwise silent."
+			content="Every emergency-level transition in your Discord. Tracked-aircraft anomalies, rolling 24h. Increasing urgency as it climbs."
 		/>
 		<meta
 			name="twitter:image"
@@ -64,7 +64,7 @@
 				"@context": "https://schema.org",
 				"@type": "SoftwareApplication",
 				"name": "Apocalypse EWS Discord bot",
-				"description": "A Discord bot that announces when the Apocalypse Early Warning System reaches emergency level 5.",
+				"description": "A Discord bot that announces every emergency-level transition from the Apocalypse Early Warning System.",
 				"url": "https://jamiew.github.io/apocalypse-ews-discord/",
 				"applicationCategory": "CommunicationApplication",
 				"operatingSystem": "Discord",
@@ -92,7 +92,8 @@
 						<p class="tagline">
 							Mirror of the
 							<a href="https://ews.kylemcdonald.net" rel="noopener">upstream EWS</a>.
-							Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent.
+							Every emergency-level transition announced — increasing urgency as it climbs.
+							Most days the level stays at 1.
 						</p>
 					</div>
 				</div>
@@ -166,11 +167,25 @@
 			<details class="panel more">
 				<summary class="dispatch">// more</summary>
 				<p>
-					When the upstream system reaches <strong>emergency level 5</strong> — unusual
-					private-jet activity sustained — this bot announces it in subscribed Discord
-					channels and direct messages. Most days nothing happens. That is the design.
+					The upstream tracks unusual private-jet activity over a rolling 24-hour window
+					and assigns an <strong>emergency level</strong> from 1 to 5. This bot polls the
+					upstream every 30 minutes and announces every transition — both rising and
+					falling. Most days the level stays at 1 and you hear nothing.
 				</p>
-				<h3 class="dispatch">// sample payload</h3>
+				<h3 class="dispatch">// alert ladder</h3>
+				<pre class="ladder">
+2 ↑   Notice. Emergency level 2.
+3 ↑   ELEVATED. Emergency level 3.
+4 ↑   WARNING. Emergency level 4.
+5 ↑   ATTENTION. EMERGENCY LEVEL 5.
+↓     Stand-down. Emergency level returned to N.</pre>
+				<p class="small muted">
+					Each transition message also carries the upstream's text label, the
+					<code>z-score</code>, and an <code>asOf</code> timestamp. On a real level-5
+					event you'll additionally receive the full incident payload (title, link,
+					pubDate) from the upstream RSS feed.
+				</p>
+				<h3 class="dispatch">// level-5 incident payload</h3>
 				<pre class="payload">
 ATTENTION. EMERGENCY LEVEL 5.
 {title}

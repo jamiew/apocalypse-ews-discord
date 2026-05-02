@@ -76,8 +76,6 @@ export function stripMention(content: string, botUserId: Snowflake): string {
 	return content.replace(new RegExp(`<@!?${botUserId}>`, "g"), "").trim();
 }
 
-// A subset of discord.js channel types — enough to test pickWelcomeChannelFrom
-// without a full Guild fixture.
 export interface WelcomeChannelCandidate {
 	id: Snowflake;
 	type: ChannelType;
@@ -117,8 +115,7 @@ export const commandDefinitions = [
 				.setDescription("Server only: channel to post alerts in (defaults to current).")
 				.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
 		)
-		// ManageGuild only gates the command in guild contexts; in DMs / private
-		// channels the user is operating on themselves, so no permission is needed.
+		// ManageGuild only gates this in guild contexts; DMs/private channels are unrestricted.
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 		.setIntegrationTypes(ALL_INSTALLS)
 		.setContexts(ALL_CONTEXTS),
@@ -227,8 +224,7 @@ export function createClient(deps: BotDeps): Client {
 			);
 			return;
 		}
-		// Guild channel: only react when the bot itself is mentioned. Avoids
-		// chiming in on every message in a subscribed channel.
+		// In guild channels: only react when the bot is mentioned, not every message.
 		const me = client.user;
 		if (!me || !message.mentions.users.has(me.id)) return;
 		void handleMention(message, deps, client, me.id).catch((err) =>
@@ -326,7 +322,6 @@ async function cmdSubscribe(
 		return;
 	}
 
-	// DM / private channel: subscribe the invoking user to DM alerts.
 	const userId = interaction.user.id;
 	const result = deps.db.upsertSubscribed({
 		kind: "dm",
@@ -478,13 +473,11 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 
 	const sub = deps.db.findSubscriber("dm", userId);
 
-	// First-contact prompt for never-subscribed users.
 	if (!sub) {
 		await reply(DM_OPT_IN_PROMPT);
 		return;
 	}
 
-	// Ping/pong for any other input.
 	await reply(
 		pingPongLine({
 			subscribed: sub.status === "active",
@@ -536,8 +529,7 @@ async function handleMention(
 	}
 
 	if (intent === "subscribe" || intent === "unsubscribe") {
-		// Same gate as the slash command. message.member can be null in rare
-		// uncached cases — treat that as no permission rather than crashing.
+		// message.member can be null in uncached cases — treat as no permission.
 		const hasPerm = message.member?.permissions.has(PermissionFlagsBits.ManageGuild) === true;
 		if (!hasPerm) {
 			await reply(MENTION_INSUFFICIENT_PRIVILEGES);

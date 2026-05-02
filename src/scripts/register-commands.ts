@@ -1,9 +1,4 @@
-// One-shot: registers slash commands. Run after changing command definitions
-// in src/discord.ts, or after first deploy.
-//
-// If TEST_GUILD_ID is set, registers as guild-scoped to that guild only —
-// commands appear instantly. Otherwise registers globally, which takes ~1h
-// to propagate.
+// TEST_GUILD_ID = guild-scoped (instant). Unset = global (~1h propagation).
 
 import { commandDefinitions, registerCommands } from "../discord.js";
 import { loadEnv } from "../env.js";

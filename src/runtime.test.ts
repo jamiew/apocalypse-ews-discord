@@ -1,7 +1,3 @@
-// Bun-runtime smoke test. Verifies the test runner identifies as Bun
-// (typeof Bun === "object") and that the DB layer roundtrips against
-// the bun:sqlite native module under the actual Bun runtime.
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { DB } from "./db.js";
 
@@ -22,7 +18,7 @@ describe("DB under Bun runtime", () => {
 		db.close();
 	});
 
-	test("better-sqlite3 native module instantiates and roundtrips a subscriber", () => {
+	test("bun:sqlite roundtrips a subscriber", () => {
 		const r = db.upsertSubscribed({
 			kind: "dm",
 			discordId: "u1",

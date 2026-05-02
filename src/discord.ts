@@ -182,6 +182,12 @@ export interface BotDeps {
 	db: DB;
 	/** Discord user id allowed to invoke the hidden /dev-fire admin command. */
 	devAdminUserId?: Snowflake;
+	/**
+	 * Discord user id that gets DM'd on guild install / subscribe / unsubscribe.
+	 * Used by {@link notifyOperator}. Falls back to {@link devAdminUserId}
+	 * at the call site.
+	 */
+	operatorUserId?: Snowflake;
 }
 
 /** Builds and configures the discord.js client; caller is responsible for `login`. */
@@ -207,6 +213,11 @@ export function createClient(deps: BotDeps): Client {
 			guildId: guild.id,
 			payload: { name: guild.name, memberCount: guild.memberCount },
 		});
+		void notifyOperator(
+			client,
+			deps,
+			`INSTALL. Guild "${guild.name}" (id=${guild.id}, members=${guild.memberCount}) added the bot.`,
+		);
 		void onGuildCreate(guild, deps).catch((err) =>
 			log.error("guildCreate failed", { err, guildId: guild.id }),
 		);
@@ -237,7 +248,7 @@ export function createClient(deps: BotDeps): Client {
 	client.on(Events.MessageCreate, (message) => {
 		if (message.author.bot) return;
 		if (message.channel.type === ChannelType.DM) {
-			void handleDM(message, deps).catch((err) =>
+			void handleDM(message, deps, client).catch((err) =>
 				log.error("dm handler failed", { err, userId: message.author.id }),
 			);
 			return;
@@ -246,7 +257,7 @@ export function createClient(deps: BotDeps): Client {
 		// chiming in on every message in a subscribed channel.
 		const me = client.user;
 		if (!me || !message.mentions.users.has(me.id)) return;
-		void handleMention(message, deps, me.id).catch((err) =>
+		void handleMention(message, deps, client, me.id).catch((err) =>
 			log.error("mention handler failed", { err, channelId: message.channelId }),
 		);
 	});
@@ -294,9 +305,9 @@ async function handleCommand(
 	});
 	switch (interaction.commandName) {
 		case "subscribe":
-			return cmdSubscribe(interaction, deps);
+			return cmdSubscribe(interaction, deps, client);
 		case "unsubscribe":
-			return cmdUnsubscribe(interaction, deps);
+			return cmdUnsubscribe(interaction, deps, client);
 		case "status":
 			return cmdStatus(interaction, deps);
 		case "help":
@@ -310,6 +321,7 @@ async function handleCommand(
 async function cmdSubscribe(
 	interaction: ChatInputCommandInteraction,
 	deps: BotDeps,
+	client: Client,
 ): Promise<void> {
 	if (interaction.guildId) {
 		const target = interaction.options.getChannel("channel") ?? interaction.channel;
@@ -334,6 +346,11 @@ async function cmdSubscribe(
 			userId: interaction.user.id,
 			payload: { kind: "guild_channel", reactivated: result.reactivated },
 		});
+		void notifyOperator(
+			client,
+			deps,
+			`SUBSCRIBE. guild_channel guild=${interaction.guildId} channel=${target.id} by user=${interaction.user.tag} (${interaction.user.id})${result.reactivated ? " (reactivated)" : ""}`,
+		);
 		await interaction.reply({ content: GUILD_SUBSCRIBE_OK });
 		return;
 	}
@@ -353,6 +370,11 @@ async function cmdSubscribe(
 			userId,
 			payload: { kind: "dm", reactivated: result.reactivated, via: "command" },
 		});
+		void notifyOperator(
+			client,
+			deps,
+			`SUBSCRIBE. dm user=${interaction.user.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=command`,
+		);
 	}
 	await interaction.reply({ content: fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED });
 }
@@ -360,6 +382,7 @@ async function cmdSubscribe(
 async function cmdUnsubscribe(
 	interaction: ChatInputCommandInteraction,
 	deps: BotDeps,
+	client: Client,
 ): Promise<void> {
 	if (interaction.guildId) {
 		if (!interaction.channelId) return;
@@ -372,6 +395,11 @@ async function cmdUnsubscribe(
 				userId: interaction.user.id,
 				payload: { kind: "guild_channel" },
 			});
+			void notifyOperator(
+				client,
+				deps,
+				`UNSUBSCRIBE. guild_channel guild=${interaction.guildId} channel=${interaction.channelId} by user=${interaction.user.tag} (${interaction.user.id})`,
+			);
 		}
 		await interaction.reply({
 			content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
@@ -388,6 +416,11 @@ async function cmdUnsubscribe(
 			userId,
 			payload: { kind: "dm", via: "command" },
 		});
+		void notifyOperator(
+			client,
+			deps,
+			`UNSUBSCRIBE. dm user=${interaction.user.tag} (${userId}) via=command`,
+		);
 	}
 	await interaction.reply({ content: removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED });
 }
@@ -424,7 +457,7 @@ async function cmdDevFire(
 	});
 }
 
-async function handleDM(message: Message, deps: BotDeps): Promise<void> {
+async function handleDM(message: Message, deps: BotDeps, client: Client): Promise<void> {
 	const userId = message.author.id;
 	const intent = classifyDmText(message.content);
 
@@ -451,8 +484,13 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 			deps.db.recordEvent({
 				kind: "subscribe",
 				userId,
-				payload: { kind: "dm", reactivated: result.reactivated },
+				payload: { kind: "dm", reactivated: result.reactivated, via: "dm" },
 			});
+			void notifyOperator(
+				client,
+				deps,
+				`SUBSCRIBE. dm user=${message.author.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=dm`,
+			);
 		}
 		await reply(fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED);
 		return;
@@ -461,7 +499,12 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 	if (intent === "unsubscribe") {
 		const removed = deps.db.markUnsubscribed("dm", userId);
 		if (removed) {
-			deps.db.recordEvent({ kind: "unsubscribe", userId, payload: { kind: "dm" } });
+			deps.db.recordEvent({ kind: "unsubscribe", userId, payload: { kind: "dm", via: "dm" } });
+			void notifyOperator(
+				client,
+				deps,
+				`UNSUBSCRIBE. dm user=${message.author.tag} (${userId}) via=dm`,
+			);
 		}
 		await reply(removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED);
 		return;
@@ -484,7 +527,12 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 	);
 }
 
-async function handleMention(message: Message, deps: BotDeps, botUserId: Snowflake): Promise<void> {
+async function handleMention(
+	message: Message,
+	deps: BotDeps,
+	client: Client,
+	botUserId: Snowflake,
+): Promise<void> {
 	if (!message.guildId || !message.channelId) return;
 	const userId = message.author.id;
 	const guildId = message.guildId;
@@ -545,6 +593,11 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 					userId,
 					payload: { kind: "guild_channel", reactivated: result.reactivated, via: "mention" },
 				});
+				void notifyOperator(
+					client,
+					deps,
+					`SUBSCRIBE. guild_channel guild=${guildId} channel=${channelId} by user=${message.author.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=mention`,
+				);
 			}
 			await reply(fresh ? GUILD_SUBSCRIBE_OK : GUILD_ALREADY_SUBSCRIBED);
 			return;
@@ -558,6 +611,11 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 				userId,
 				payload: { kind: "guild_channel", via: "mention" },
 			});
+			void notifyOperator(
+				client,
+				deps,
+				`UNSUBSCRIBE. guild_channel guild=${guildId} channel=${channelId} by user=${message.author.tag} (${userId}) via=mention`,
+			);
 		}
 		await reply(removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED);
 		return;
@@ -624,6 +682,21 @@ export async function sendToSubscriber(
 	}
 	const user = await client.users.fetch(sub.discord_id);
 	await user.send(body);
+}
+
+/**
+ * DM the operator (if configured) with a short status line. Best-effort —
+ * a closed DM, network blip, or missing operator id never throws.
+ */
+async function notifyOperator(client: Client, deps: BotDeps, content: string): Promise<void> {
+	const id = deps.operatorUserId ?? deps.devAdminUserId;
+	if (!id) return;
+	try {
+		const user = await client.users.fetch(id);
+		await user.send(content);
+	} catch (err) {
+		log.warn("operator notify failed", { err, operatorId: id });
+	}
 }
 
 function isSendable(channel: unknown): channel is TextBasedChannel & {

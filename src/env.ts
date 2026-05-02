@@ -4,6 +4,9 @@ const schema = z.object({
 	DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
 	DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
 	DEV_ADMIN_USER_ID: z.string().optional(),
+	// If set, the bot DMs this user when it's added to a new guild and on every
+	// subscribe / unsubscribe. Falls back to DEV_ADMIN_USER_ID if unset.
+	OPERATOR_USER_ID: z.string().optional(),
 	// If set, `pnpm register-commands` registers slash commands to this guild
 	// only (instant propagation). Unset = global registration (~1h propagation).
 	TEST_GUILD_ID: z.string().optional(),

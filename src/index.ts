@@ -11,7 +11,11 @@ const log = childLogger("boot");
 async function main() {
 	const env = loadEnv();
 	const db = new DB(env.DATABASE_PATH);
-	const deps = { db, devAdminUserId: env.DEV_ADMIN_USER_ID };
+	const deps = {
+		db,
+		devAdminUserId: env.DEV_ADMIN_USER_ID,
+		operatorUserId: env.OPERATOR_USER_ID,
+	};
 	const client = createClient(deps);
 
 	await client.login(env.DISCORD_TOKEN);

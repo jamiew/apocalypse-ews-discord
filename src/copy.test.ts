@@ -13,7 +13,7 @@ import {
 } from "./copy.js";
 
 describe("alertPayload", () => {
-	const HEADER = "ATTENTION. APOCALYPSE EARLY WARNING SYSTEM HAS REACHED EMERGENCY LEVEL 5.";
+	const HEADER = "ATTENTION. EMERGENCY LEVEL 5.";
 
 	it("formats the alert as 4 lines", () => {
 		const out = alertPayload({
@@ -42,23 +42,21 @@ describe("statusLine", () => {
 				subscribed: true,
 				lastAlert: { title: "Alert.", pubDate: "Thu, 30 Apr 2026 12:00:00 GMT" },
 			}),
-		).toBe("Subscribed. Last alert: Thu, 30 Apr 2026 12:00:00 GMT — Alert..");
+		).toBe("SUBSCRIBED. Last: Thu, 30 Apr 2026 12:00:00 GMT — Alert..");
 	});
 
 	it("renders not-subscribed + no alert on record", () => {
-		expect(statusLine({ subscribed: false, lastAlert: null })).toBe(
-			"Not subscribed. Last alert: none on record.",
-		);
+		expect(statusLine({ subscribed: false, lastAlert: null })).toBe("NOT SUBSCRIBED. Last: none.");
 	});
 });
 
 describe("pingPongLine", () => {
 	it("uses lowercase 'subscribed' and 'still here' framing", () => {
 		expect(pingPongLine({ subscribed: true, lastAlert: null })).toBe(
-			"Still here. Last alert: none on record. Status: subscribed.",
+			"Still here. Last: none. Status: subscribed.",
 		);
 		expect(pingPongLine({ subscribed: false, lastAlert: null })).toBe(
-			"Still here. Last alert: none on record. Status: not subscribed.",
+			"Still here. Last: none. Status: not subscribed.",
 		);
 	});
 });

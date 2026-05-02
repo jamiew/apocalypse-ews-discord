@@ -4,69 +4,53 @@
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
 
 export const GUILD_WELCOME = [
-	"APOCALYPSE EARLY WARNING SYSTEM ONLINE.",
+	"APOCALYPSE EWS ONLINE.",
 	"",
-	`Continuous monitoring of tracked-aircraft anomaly signals over a rolling 24-hour window. Source: ${SOURCE_URL}`,
+	`Tracked-aircraft anomaly monitoring. Source: ${SOURCE_URL}`,
+	"Emergency level 5 → announced here. Otherwise silent.",
 	"",
-	"Condition normal: silent.",
-	"Condition critical (emergency level 5, unusual private-jet activity sustained): announced in subscribed channels.",
-	"",
-	"Operator commands:",
-	"`/subscribe` — designate this channel as an alert recipient.",
-	"`/unsubscribe` — stand this channel down.",
-	"`/status` — query subscription state and last incident on record.",
-	"`/help` — refresher.",
-	"",
-	"You may also @-mention this bot with `subscribe`, `unsubscribe`, or `status`. Other input returns the command list.",
-	"",
-	"To remove this bot from the server: Server Settings → Integrations → Apocalypse EWS → Remove.",
+	"`/subscribe` `/unsubscribe` `/status` `/help`. Or @-mention with the same word.",
+	"Uninstall: Server Settings → Integrations → Apocalypse EWS → Remove.",
 	"",
 	"Standing by.",
 ].join("\n");
 
 export const GUILD_SUBSCRIBE_OK =
-	"Subscribed. This channel will receive a message if the system reaches emergency level 5. Run `/unsubscribe` to stop.";
+	"SUBSCRIBED. This channel receives level 5 alerts. `/unsubscribe` to stand down.";
 
-export const GUILD_ALREADY_SUBSCRIBED = "This channel is already subscribed.";
+export const GUILD_ALREADY_SUBSCRIBED = "Already subscribed.";
 
 export const GUILD_UNSUBSCRIBE_OK =
-	"Unsubscribed. To remove the bot from this server entirely: Server Settings → Integrations → Apocalypse EWS → Remove.";
+	"Unsubscribed. Full removal: Server Settings → Integrations → Apocalypse EWS → Remove.";
 
-export const GUILD_NOT_SUBSCRIBED = "This channel is not subscribed.";
+export const GUILD_NOT_SUBSCRIBED = "Not subscribed.";
 
 export const HELP = [
-	"APOCALYPSE EARLY WARNING SYSTEM.",
-	`Source: ${SOURCE_URL}`,
+	`APOCALYPSE EWS. Source: ${SOURCE_URL}`,
 	"",
-	"Operator commands:",
-	"`/subscribe [channel]` — receive alerts in the chosen channel (defaults to current).",
-	"`/unsubscribe` — stop alerts in this channel.",
-	"`/status` — show subscription state and the last incident on record.",
-	"`/help` — this message.",
+	"`/subscribe [channel]` `/unsubscribe` `/status` `/help`",
+	"Or @-mention with `subscribe` / `unsubscribe` / `status` / `help`.",
 	"",
-	"@-mention this bot with `subscribe`, `unsubscribe`, or `status` for the same effect.",
-	"",
-	"To remove this bot from the server: Server Settings → Integrations → Apocalypse EWS → Remove.",
+	"Uninstall: Server Settings → Integrations → Apocalypse EWS → Remove.",
 ].join("\n");
 
 export const DM_OPT_IN_PROMPT = [
-	"Apocalypse Early Warning System.",
-	`Automatic alerts when the system reaches emergency level 5 — unusual private-jet activity over a rolling 24-hour window. Source: ${SOURCE_URL}`,
-	"Reply `subscribe` to receive a direct message if that happens. Reply `unsubscribe` at any time to stop.",
+	"APOCALYPSE EWS.",
+	`Level 5 alerts only — rare. Source: ${SOURCE_URL}`,
+	"Reply `subscribe` to opt in, `unsubscribe` to stand down.",
 ].join("\n");
 
-export const DM_SUBSCRIBE_OK =
-	"Subscribed. You will receive a direct message if the system reaches emergency level 5. Reply `unsubscribe` to stop.";
+export const DM_SUBSCRIBE_OK = "SUBSCRIBED. Level 5 alerts inbound by DM. `unsubscribe` to stop.";
 
-export const DM_ALREADY_SUBSCRIBED = "Already subscribed. Reply `unsubscribe` to stop.";
+export const DM_ALREADY_SUBSCRIBED = "Already subscribed.";
 
 export const DM_UNSUBSCRIBE_OK =
-	"Unsubscribed. You can also block this bot or remove it from your DMs from your Discord privacy settings.";
+	"Unsubscribed. Block or remove the bot from Discord privacy settings if you want it gone entirely.";
 
 export const DM_NOT_SUBSCRIBED = "Not subscribed.";
 
 export const ANNUAL_REMINDER =
-	"A year on, you are still subscribed to the Apocalypse Early Warning System. Nothing has ended. Go enjoy your life. Reply `unsubscribe` to stop receiving these.";
+	"One year on. You are still subscribed to the Apocalypse EWS. Nothing has ended. Go outside. Reply `unsubscribe` to stop these.";
 
 export interface AlertItem {
 	title: string;
@@ -83,26 +67,19 @@ export const MENTION_INSUFFICIENT_PRIVILEGES =
 	"INSUFFICIENT PRIVILEGES. `subscribe` and `unsubscribe` require ManageGuild on this server.";
 
 export function alertPayload(item: AlertItem): string {
-	return [
-		"ATTENTION. APOCALYPSE EARLY WARNING SYSTEM HAS REACHED EMERGENCY LEVEL 5.",
-		item.title,
-		item.pubDate,
-		item.link,
-	]
+	return ["ATTENTION. EMERGENCY LEVEL 5.", item.title, item.pubDate, item.link]
 		.filter(Boolean)
 		.join("\n");
 }
 
 function formatLastAlert(last: LastAlert): string {
-	return last ? `${last.pubDate} — ${last.title}` : "none on record";
+	return last ? `${last.pubDate} — ${last.title}` : "none";
 }
 
 export function statusLine(args: { subscribed: boolean; lastAlert: LastAlert }): string {
-	const sub = args.subscribed ? "Subscribed" : "Not subscribed";
-	return `${sub}. Last alert: ${formatLastAlert(args.lastAlert)}.`;
+	return `${args.subscribed ? "SUBSCRIBED" : "NOT SUBSCRIBED"}. Last: ${formatLastAlert(args.lastAlert)}.`;
 }
 
 export function pingPongLine(args: { subscribed: boolean; lastAlert: LastAlert }): string {
-	const sub = args.subscribed ? "subscribed" : "not subscribed";
-	return `Still here. Last alert: ${formatLastAlert(args.lastAlert)}. Status: ${sub}.`;
+	return `Still here. Last: ${formatLastAlert(args.lastAlert)}. Status: ${args.subscribed ? "subscribed" : "not subscribed"}.`;
 }

@@ -78,13 +78,16 @@
 
 		<div class="app-shell">
 			<section class="panel hero">
-				<pre class="banner" aria-hidden="true">
- ████████████████████████████████
- █  apocalypse.ews // discord  █▓
- █  condition normal: silent   █▓▒
- ████████████████████████████████▓▒░
-  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░
-   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</pre>
+				<div class="marquee" aria-label="Apocalypse EWS // Discord. Condition normal: silent.">
+					<div class="marquee__box">
+						<div>apocalypse.ews // discord</div>
+						<div>condition normal: silent <span class="cursor">█</span></div>
+					</div>
+					<div class="marquee__shadow" aria-hidden="true"></div>
+				</div>
+				<p class="hero-tag">
+					tracked-aircraft anomalies / rolling 24h / every level transition announced
+				</p>
 				<div class="hero-row">
 					<img src="ews-icon.jpg" alt="" width="96" height="96" />
 					<div class="title-block">
@@ -92,14 +95,9 @@
 						<p class="tagline">
 							Mirror of the
 							<a href="https://ews.kylemcdonald.net" rel="noopener">upstream EWS</a>.
-							Every emergency-level transition announced — increasing urgency as it climbs.
 							Most days the level stays at 1.
 						</p>
 					</div>
-				</div>
-				<div class="status-banner">
-					<strong class="ucase">Status —</strong>
-					condition normal <span class="cursor">█</span>
 				</div>
 			</section>
 

@@ -147,12 +147,6 @@ details[open] > summary.dispatch::before {
 	content: "▾ ";
 }
 
-.ucase {
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	font-family: var(--mono);
-	font-size: 0.9em;
-}
 .muted {
 	color: var(--page-muted);
 }
@@ -160,28 +154,63 @@ details[open] > summary.dispatch::before {
 	font-size: 0.9rem;
 }
 
-/* Hero panel: ANSI banner + icon row + status banner. */
+/* Hero panel: floating marquee + tagline + icon row. */
 .hero {
 	display: grid;
 	gap: 12px;
 }
-.hero .banner {
-	font-family: var(--mono);
-	font-size: 11px;
-	line-height: 1;
-	background: transparent;
-	border: 0;
-	padding: 0;
-	margin: 0;
-	color: #555;
-	white-space: pre;
-	overflow-x: auto;
+
+/* Marquee — black-filled box with cream-yellow text and a halftone-dotted
+ * drop shadow offset down-right. Same vibe as a pulp-magazine sidebar. */
+.marquee {
+	position: relative;
+	display: inline-block;
+	margin: 4px 12px 14px 0;
+	max-width: 100%;
 }
+.marquee__box {
+	position: relative;
+	z-index: 2;
+	background: #000;
+	color: var(--banner-bg);
+	font-family: var(--mono);
+	font-size: 0.95rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 8px 14px;
+	border: 1px solid #000;
+	white-space: nowrap;
+}
+.marquee__box > div {
+	line-height: 1.35;
+}
+.marquee__shadow {
+	position: absolute;
+	z-index: 1;
+	left: 6px;
+	right: -6px;
+	top: 6px;
+	bottom: -6px;
+	background-image: radial-gradient(var(--page-muted) 1px, transparent 1.5px);
+	background-size: 4px 4px;
+	background-position: 0 0;
+	pointer-events: none;
+}
+
+.hero-tag {
+	margin: 0;
+	color: var(--page-muted);
+	font-family: var(--mono);
+	font-size: 0.88rem;
+	letter-spacing: 0.02em;
+}
+
 .hero-row {
 	display: grid;
 	grid-template-columns: 96px 1fr;
 	gap: 16px;
 	align-items: center;
+	margin-top: 4px;
 }
 .hero-row img {
 	display: block;
@@ -199,19 +228,7 @@ details[open] > summary.dispatch::before {
 	font-style: italic;
 }
 
-/* Status banner — pale yellow, like the source's level indicator. */
-.status-banner {
-	background: var(--banner-bg);
-	border: 1px solid var(--panel-border);
-	padding: 8px 12px;
-	font-family: var(--mono);
-	font-size: 0.95rem;
-}
-.status-banner strong {
-	margin-right: 4px;
-}
 .cursor {
-	color: var(--page-text);
 	display: inline-block;
 	animation: blink 1s steps(1) infinite;
 }
@@ -392,8 +409,13 @@ footer p {
 	h1 {
 		font-size: 1.3rem;
 	}
-	.hero .banner {
-		font-size: 9px;
+	.marquee__box {
+		font-size: 0.78rem;
+		padding: 6px 10px;
+		white-space: normal;
+	}
+	.hero-tag {
+		font-size: 0.78rem;
 	}
 	.install-grid {
 		grid-template-columns: 1fr;

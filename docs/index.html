@@ -3,15 +3,15 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<title>APOCALYPSE EARLY WARNING SYSTEM // DISCORD BOT</title>
+		<title>APOCALYPSE.EWS // DISCORD</title>
 		<meta
 			name="description"
-			content="A Discord bot that announces when the Apocalypse Early Warning System reaches emergency level 5."
+			content="Discord bot. Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent."
 		/>
-		<meta property="og:title" content="Apocalypse Early Warning System — Discord Bot" />
+		<meta property="og:title" content="APOCALYPSE.EWS // DISCORD" />
 		<meta
 			property="og:description"
-			content="Tracked-aircraft anomaly signals over a rolling 24-hour window, in your server."
+			content="Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent."
 		/>
 		<meta property="og:image" content="ews-icon.jpg" />
 		<link rel="icon" href="ews-icon.jpg" />
@@ -19,139 +19,97 @@
 	</head>
 	<body>
 		<div class="scanlines" aria-hidden="true"></div>
+
 		<header class="hero">
-			<img src="ews-icon.jpg" alt="" class="icon" width="96" height="96" />
-			<h1>
-				APOCALYPSE<br />
-				EARLY WARNING SYSTEM
-			</h1>
-			<p class="tagline">
-				<span class="cursor">█</span>
-				DISCORD BOT // CONDITION NORMAL: SILENT.
-			</p>
+			<pre class="banner" aria-hidden="true">
+ ████████████████████████████████
+ █  APOCALYPSE.EWS // DISCORD  █▓
+ █  CONDITION NORMAL: SILENT   █▓▒
+ ████████████████████████████████▓▒░
+  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░
+   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</pre>
+			<img src="ews-icon.jpg" alt="" class="icon" width="64" height="64" />
+			<h1 class="visually-hidden">APOCALYPSE.EWS // DISCORD</h1>
+			<p class="tagline"><span class="cursor">█</span> tracked-aircraft anomalies / rolling 24h / level 5 → announced</p>
 		</header>
 
 		<main>
-			<section class="block">
-				<h2>// MISSION</h2>
-				<p>
-					Continuous monitoring of tracked-aircraft anomaly signals over a rolling 24-hour
-					window. When the upstream system reaches
-					<strong>emergency level 5</strong> — unusual private-jet activity sustained — this
-					bot announces it in subscribed Discord channels and direct messages.
-				</p>
-				<p>
-					Source feed:
-					<a href="https://ews.kylemcdonald.net" target="_blank" rel="noopener"
-						>ews.kylemcdonald.net</a
-					>
-					(Kyle McDonald). This bot is just a courier.
-				</p>
-			</section>
-
 			<section class="block install">
-				<h2>// DEPLOY</h2>
-				<p>Choose an installation profile.</p>
 				<div class="buttons">
 					<a class="btn btn-primary" id="btn-server" href="#" rel="noopener">
-						<span class="btn-label">ADD TO SERVER</span>
-						<span class="btn-sub">guild install · slash commands · @-mentions</span>
+						<span class="btn-label">ADD TO SERVER ▸</span>
+						<span class="btn-sub">guild install · slash · @-mention</span>
 					</a>
 					<a class="btn btn-secondary" id="btn-user" href="#" rel="noopener">
-						<span class="btn-label">ADD TO ACCOUNT</span>
-						<span class="btn-sub">user install · DM the bot from anywhere</span>
+						<span class="btn-label">ADD TO ACCOUNT ▸</span>
+						<span class="btn-sub">user install · DM from anywhere</span>
 					</a>
 				</div>
 				<p class="muted small" id="config-warning">
-					CLIENT ID NOT SET. Edit <code>docs/index.html</code> and replace
-					<code>YOUR_DISCORD_CLIENT_ID</code>.
+					CLIENT_ID NOT SET. Set it in <code>docs/index.html</code>.
 				</p>
 			</section>
 
 			<section class="block">
-				<h2>// OPERATOR COMMANDS</h2>
-				<table class="cmds">
-					<tbody>
-						<tr>
-							<td><code>/subscribe</code></td>
-							<td>
-								Designate this channel (or yourself, in a DM) as an alert recipient.
-							</td>
-						</tr>
-						<tr>
-							<td><code>/unsubscribe</code></td>
-							<td>Stand this channel (or yourself) down.</td>
-						</tr>
-						<tr>
-							<td><code>/status</code></td>
-							<td>Query subscription state and last incident on record.</td>
-						</tr>
-						<tr>
-							<td><code>/help</code></td>
-							<td>Refresher.</td>
-						</tr>
-					</tbody>
-				</table>
-				<p class="muted">
-					In a server channel, <code>@Apocalypse EWS subscribe</code> works too. In a DM,
-					just say <code>subscribe</code>.
+				<h2>// MISSION</h2>
+				<p>
+					Mirror of the upstream
+					<a href="https://ews.kylemcdonald.net" target="_blank" rel="noopener"
+						>Apocalypse EWS</a
+					>
+					(Kyle McDonald). Most days nothing happens. That is the design.
 				</p>
 			</section>
 
 			<section class="block">
-				<h2>// EXPECTED OUTPUT</h2>
-				<pre>
-ATTENTION. APOCALYPSE EARLY WARNING SYSTEM
-HAS REACHED EMERGENCY LEVEL 5.
+				<h2>// COMMANDS</h2>
+				<pre class="cmds">
+/subscribe [channel]    designate alert recipient (this channel, or you)
+/unsubscribe            stand down
+/status                 subscription + last incident
+/help                   refresher</pre>
+				<p class="muted small">
+					In a server: <code>@Apocalypse EWS subscribe</code> works too. In a DM: just say
+					the word.
+				</p>
+			</section>
+
+			<section class="block">
+				<h2>// PAYLOAD</h2>
+				<pre class="payload">
+ATTENTION. EMERGENCY LEVEL 5.
 {title}
 {pubDate}
 {link}</pre>
-			</section>
-
-			<section class="block">
-				<h2>// FREQUENCY</h2>
-				<p>
-					Rare. The system has not historically reached emergency level 5 often. Most days
-					nothing happens. That is the design. Subscribe and forget.
-				</p>
 			</section>
 		</main>
 
 		<footer>
 			<p>
-				Source: <a href="https://github.com/jamiew/apocalypse-ews" rel="noopener">bot</a> ·
-				<a href="https://github.com/kylemcdonald/ews" rel="noopener">upstream EWS</a>
+				<a href="https://github.com/jamiew/apocalypse-ews" rel="noopener">bot</a> ·
+				<a href="https://github.com/kylemcdonald/ews" rel="noopener">upstream</a>
 			</p>
 			<p class="muted small">STANDING BY.</p>
 		</footer>
 
 		<script>
-			// Set this to your Discord application ID and uncomment.
 			const CLIENT_ID = "YOUR_DISCORD_CLIENT_ID";
 
 			(function () {
-				const set = (id, href) => {
-					const el = document.getElementById(id);
-					if (el) el.href = href;
-				};
-				if (CLIENT_ID && CLIENT_ID !== "YOUR_DISCORD_CLIENT_ID") {
-					const guildInstall =
-						"https://discord.com/oauth2/authorize?client_id=" +
-						encodeURIComponent(CLIENT_ID) +
-						"&scope=" +
-						encodeURIComponent("bot applications.commands") +
-						"&permissions=3072&integration_type=0";
-					const userInstall =
-						"https://discord.com/oauth2/authorize?client_id=" +
-						encodeURIComponent(CLIENT_ID) +
-						"&scope=" +
-						encodeURIComponent("applications.commands") +
-						"&integration_type=1";
-					set("btn-server", guildInstall);
-					set("btn-user", userInstall);
-					const warning = document.getElementById("config-warning");
-					if (warning) warning.style.display = "none";
-				}
+				if (!CLIENT_ID || CLIENT_ID === "YOUR_DISCORD_CLIENT_ID") return;
+				const id = encodeURIComponent(CLIENT_ID);
+				const guild =
+					`https://discord.com/oauth2/authorize?client_id=${id}` +
+					`&scope=${encodeURIComponent("bot applications.commands")}` +
+					`&permissions=3072&integration_type=0`;
+				const user =
+					`https://discord.com/oauth2/authorize?client_id=${id}` +
+					`&scope=${encodeURIComponent("applications.commands")}` +
+					`&integration_type=1`;
+				document.getElementById("btn-server").href = guild;
+				document.getElementById("btn-user").href = user;
+				const warn = document.getElementById("config-warning");
+				if (warn) warn.style.display = "none";
 			})();
 		</script>
 	</body>

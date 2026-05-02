@@ -73,29 +73,42 @@ code {
 /* Hero */
 .hero {
 	text-align: left;
-	padding-bottom: 36px;
+	padding-bottom: 28px;
 	border-bottom: 1px dashed var(--border);
-	margin-bottom: 40px;
+	margin-bottom: 32px;
+}
+.banner {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	margin: 0 0 16px;
+	color: var(--accent);
+	line-height: 1;
+	font-size: 12px;
+	letter-spacing: 0;
+	overflow-x: auto;
+	white-space: pre;
+	text-shadow: 0 0 6px rgba(255, 212, 0, 0.25);
 }
 .icon {
-	display: block;
-	border: 2px solid var(--accent);
-	border-radius: 12px;
-	margin-bottom: 20px;
-	background: #000;
+	display: none; /* the banner carries the visual now; img kept for OG/share */
 }
-.hero h1 {
-	font-size: 28px;
-	letter-spacing: 0.04em;
-	font-weight: 700;
-	color: var(--fg);
-	margin: 0 0 12px;
-	line-height: 1.1;
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 .tagline {
 	color: var(--fg-dim);
 	margin: 0;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.04em;
+	font-size: 13px;
 }
 .cursor {
 	color: var(--accent);
@@ -140,20 +153,10 @@ pre {
 	font-size: 0.9em;
 }
 
-/* Commands table */
-table.cmds {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 0.95em;
-}
-table.cmds td {
-	border-bottom: 1px dotted var(--border);
-	padding: 10px 0;
-	vertical-align: top;
-}
-table.cmds td:first-child {
-	width: 9em;
-	white-space: nowrap;
+/* Now using <pre> for the commands list — see .payload / pre styles. */
+pre.cmds,
+pre.payload {
+	font-size: 0.85em;
 }
 
 /* Install buttons */

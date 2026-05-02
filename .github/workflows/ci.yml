@@ -1,10 +1,8 @@
 # Continuous integration for the Apocalypse EWS Discord bot.
 #
-# One job, one matrix dimension if we ever care: lint + typecheck + test +
-# build, all gated by `pnpm ci` so the failure mode is the same locally
-# and on GitHub. `biome ci` fails on warnings; tsc --noEmit catches type
-# regressions; vitest runs the in-memory SQLite suite; tsc -p
-# tsconfig.build.json verifies dist/ compiles cleanly.
+# Single job: lint + typecheck + test + bun runtime smoke. The CI pipeline
+# is the same `bun run ci` operators run locally, so the green/red signal
+# is identical in both places.
 
 name: CI
 
@@ -29,20 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          # Read the pnpm version from packageManager / engines if pinned;
-          # otherwise the action defaults to latest. We don't pin, so latest
-          # is fine.
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
+          bun-version: latest
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
-      - name: Lint, typecheck, test, build
-        run: pnpm run ci
+      - name: Lint, typecheck, test
+        run: bun run ci

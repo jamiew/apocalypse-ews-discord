@@ -33,6 +33,7 @@ export type EventKind =
 	| "alert_seen"
 	| "alert_dispatch_ok"
 	| "alert_dispatch_fail"
+	| "level_change"
 	| "reminder_ok"
 	| "reminder_fail"
 	| "error";
@@ -76,6 +77,16 @@ export interface SeenAlert {
 	link: string | null;
 	pub_date: string | null;
 	ingested_at: string;
+}
+
+/** Single-row level snapshot. `emergency_level` is null until first observation. */
+export interface LevelState {
+	id: 1;
+	emergency_level: number | null;
+	alert_level: string | null;
+	z_score: number | null;
+	as_of: string | null;
+	updated_at: string;
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -221,6 +232,32 @@ export class DB {
 		const row = this.lastSeenAlert();
 		if (!row?.title) return null;
 		return { title: row.title, pubDate: row.pub_date ?? "" };
+	}
+
+	/** Read the single-row level snapshot. */
+	getLevelState(): LevelState {
+		const row = this.db.prepare<[], LevelState>(`SELECT * FROM level_state WHERE id = 1`).get();
+		if (!row) {
+			// Defensive — migration's INSERT OR IGNORE should have populated it.
+			throw new Error("level_state missing row id=1; was the migration run?");
+		}
+		return row;
+	}
+
+	/** Persist the latest observed level. */
+	setLevelState(args: {
+		emergencyLevel: number;
+		alertLevel: string | null;
+		zScore: number | null;
+		asOf: string;
+	}): void {
+		this.db
+			.prepare<[number, string | null, number | null, string, string]>(
+				`UPDATE level_state
+				 SET emergency_level = ?, alert_level = ?, z_score = ?, as_of = ?, updated_at = ?
+				 WHERE id = 1`,
+			)
+			.run(args.emergencyLevel, args.alertLevel, args.zScore, args.asOf, new Date().toISOString());
 	}
 
 	/**

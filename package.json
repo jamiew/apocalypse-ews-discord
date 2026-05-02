@@ -2,7 +2,7 @@
 	"name": "apocalypse-ews-bot",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Discord bot for the Apocalypse Early Warning System (ews.kylemcdonald.net).",
+	"description": "Apocalypse EWS // Discord bot. Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent.",
 	"type": "module",
 	"main": "dist/index.js",
 	"scripts": {

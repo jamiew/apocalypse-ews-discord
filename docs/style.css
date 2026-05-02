@@ -278,6 +278,24 @@ details[open] > summary.dispatch::before {
 	font-family: var(--mono);
 }
 
+/* Screenshot panel — centred, max-width contained, hover lift. */
+.shot {
+	display: block;
+	border: 1px solid var(--panel-border);
+	background: #000;
+	line-height: 0;
+}
+.shot img {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-width: 100%;
+}
+.shot:hover {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
 /* Pre blocks for help / payload. Square, bordered, courier inside. */
 pre {
 	font-family: var(--mono);

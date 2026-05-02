@@ -11,6 +11,8 @@ import {
 } from "./copy.js";
 
 describe("alertPayload", () => {
+	const HEADER = "ATTENTION. APOCALYPSE EARLY WARNING SYSTEM HAS REACHED EMERGENCY LEVEL 5.";
+
 	it("formats the alert as 4 lines", () => {
 		const out = alertPayload({
 			title: "Emergency level 5.",
@@ -18,7 +20,7 @@ describe("alertPayload", () => {
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		});
 		expect(out.split("\n")).toEqual([
-			"Apocalypse Early Warning System — emergency level 5.",
+			HEADER,
 			"Emergency level 5.",
 			"Thu, 30 Apr 2026 12:00:00 GMT",
 			"https://ews.kylemcdonald.net/",
@@ -27,7 +29,7 @@ describe("alertPayload", () => {
 
 	it("drops empty fields without leaving blank lines", () => {
 		const out = alertPayload({ title: "t", link: "", pubDate: "" });
-		expect(out.split("\n")).toEqual(["Apocalypse Early Warning System — emergency level 5.", "t"]);
+		expect(out.split("\n")).toEqual([HEADER, "t"]);
 	});
 });
 

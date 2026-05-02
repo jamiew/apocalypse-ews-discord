@@ -17,7 +17,8 @@
 		"format:check": "biome format .",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
-		"test": "vitest run"
+		"test": "vitest run",
+		"ci": "biome ci . && tsc --noEmit && vitest run && tsc -p tsconfig.build.json"
 	},
 	"engines": {
 		"node": ">=20"

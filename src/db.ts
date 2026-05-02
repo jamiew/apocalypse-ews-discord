@@ -55,12 +55,14 @@ export interface EventRecord {
 // (when you're staring at a SQLite row trying to figure out what's in there).
 // ---------------------------------------------------------------------------
 
-type SubscribeVia = "command" | "dm" | "mention";
-type DmIntentLiteral = "subscribe" | "unsubscribe" | "other";
-type MentionIntentLiteral = DmIntentLiteral | "status" | "help";
+/** Where a subscribe/unsubscribe action came from. Closed union — typo = type error. */
+export type SubscribeVia = "command" | "dm" | "mention";
 
-/** Provenance for an alert dispatch — RSS item or level-poller transition. */
-type DispatchSource = "rss" | "level_change";
+/** What the user meant when they sent a DM to the bot. */
+export type DmIntent = "subscribe" | "unsubscribe" | "other";
+
+/** What the user meant when they @-mentioned the bot in a guild channel. */
+export type MentionIntent = DmIntent | "status" | "help";
 
 interface AlertDispatchRssMeta {
 	source: "rss";
@@ -86,9 +88,9 @@ export interface EventPayloadByKind {
 	command: { name: string; options: ReadonlyArray<{ name: string; value: unknown }> };
 	subscribe: { kind: SubscriberKind; via: SubscribeVia; reactivated: boolean };
 	unsubscribe: { kind: SubscriberKind; via: SubscribeVia };
-	dm_in: { content: string; intent: DmIntentLiteral };
+	dm_in: { content: string; intent: DmIntent };
 	dm_out: { content: string };
-	mention_in: { content: string; stripped: string; intent: MentionIntentLiteral };
+	mention_in: { content: string; stripped: string; intent: MentionIntent };
 	mention_out: { content: string };
 	alert_seen: {
 		guid: string;
@@ -131,9 +133,6 @@ export type RecordEventInput = {
 		? { payload?: undefined }
 		: { payload: EventPayloadByKind[K] });
 }[EventKind];
-
-// re-export for callers that want to type-only-import the literal unions
-export type { DispatchSource, DmIntentLiteral, MentionIntentLiteral, SubscribeVia };
 
 /** A subscriber: one Discord channel or DM target receiving alerts. */
 export interface Subscriber {

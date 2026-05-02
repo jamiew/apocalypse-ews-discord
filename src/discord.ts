@@ -39,27 +39,23 @@ import {
 } from "./copy.js";
 import {
 	type DB,
+	type DmIntent,
 	type EventPayloadByKind,
+	type MentionIntent,
 	type Subscriber,
 	type SubscriberKind,
+	type SubscribeVia,
 	subscriberAddress,
 } from "./db.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("discord");
 
-/** What the user meant when they sent a DM. */
-export type DmIntent = "subscribe" | "unsubscribe" | "other";
-
-/** What the user meant when they @-mentioned the bot in a guild channel. */
-export type MentionIntent = "subscribe" | "unsubscribe" | "status" | "help" | "other";
-
 const SUBSCRIBE_KEYWORDS = new Set(["subscribe", "start", "yes", "y"]);
 const UNSUBSCRIBE_KEYWORDS = new Set(["unsubscribe", "stop", "cancel", "quit", "end"]);
 const STATUS_KEYWORDS = new Set(["status", "state"]);
 const HELP_KEYWORDS = new Set(["help", "?"]);
 
-/** Maps a raw DM body to a {@link DmIntent}. Trim + case-insensitive keyword set. */
 export function classifyDmText(raw: string): DmIntent {
 	const text = raw.trim().toLowerCase();
 	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
@@ -67,11 +63,6 @@ export function classifyDmText(raw: string): DmIntent {
 	return "other";
 }
 
-/**
- * Maps a raw @-mention body (with the mention prefix already stripped) to a
- * {@link MentionIntent}. Recognizes the same subscribe/unsubscribe keywords
- * as DMs, plus `status` and `help`.
- */
 export function classifyMentionText(raw: string): MentionIntent {
 	const text = raw.trim().toLowerCase();
 	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
@@ -81,16 +72,12 @@ export function classifyMentionText(raw: string): MentionIntent {
 	return "other";
 }
 
-/** Strips bot user mentions (`<@id>` / `<@!id>`) from a message body. */
 export function stripMention(content: string, botUserId: Snowflake): string {
-	const re = new RegExp(`<@!?${botUserId}>`, "g");
-	return content.replace(re, "").trim();
+	return content.replace(new RegExp(`<@!?${botUserId}>`, "g"), "").trim();
 }
 
-/**
- * Channel-shape just enough to pick a welcome channel. Lets us test the
- * selection logic without constructing a full discord.js Guild fixture.
- */
+// A subset of discord.js channel types — enough to test pickWelcomeChannelFrom
+// without a full Guild fixture.
 export interface WelcomeChannelCandidate {
 	id: Snowflake;
 	type: ChannelType;
@@ -98,11 +85,6 @@ export interface WelcomeChannelCandidate {
 	canSend: boolean;
 }
 
-/**
- * Picks where to post the install-welcome message: prefer the guild's system
- * channel if the bot can speak there; otherwise the lowest-position text
- * channel the bot can send to. Returns null if there's nowhere to post.
- */
 export function pickWelcomeChannelFrom(
 	systemChannel: WelcomeChannelCandidate | null,
 	channels: readonly WelcomeChannelCandidate[],
@@ -114,17 +96,13 @@ export function pickWelcomeChannelFrom(
 	return sendable[0] ?? null;
 }
 
-// Commands work in three contexts: server channels (guild install), DMs with
-// the bot (user install or guild install), and other private channels (user
-// install). The handler reads `interaction.guildId` to decide whether the
-// command targets a guild channel or the invoking user.
-const allContexts = (): InteractionContextType[] => [
+const ALL_CONTEXTS: InteractionContextType[] = [
 	InteractionContextType.Guild,
 	InteractionContextType.BotDM,
 	InteractionContextType.PrivateChannel,
 ];
-const guildOnly = (): InteractionContextType[] => [InteractionContextType.Guild];
-const allInstalls = (): ApplicationIntegrationType[] => [
+const GUILD_ONLY: InteractionContextType[] = [InteractionContextType.Guild];
+const ALL_INSTALLS: ApplicationIntegrationType[] = [
 	ApplicationIntegrationType.GuildInstall,
 	ApplicationIntegrationType.UserInstall,
 ];
@@ -142,30 +120,30 @@ export const commandDefinitions = [
 		// ManageGuild only gates the command in guild contexts; in DMs / private
 		// channels the user is operating on themselves, so no permission is needed.
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setIntegrationTypes(allInstalls())
-		.setContexts(allContexts()),
+		.setIntegrationTypes(ALL_INSTALLS)
+		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
 		.setName("unsubscribe")
 		.setDescription("Stop receiving alerts (this channel in a server, or you in a DM).")
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-		.setIntegrationTypes(allInstalls())
-		.setContexts(allContexts()),
+		.setIntegrationTypes(ALL_INSTALLS)
+		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
 		.setName("status")
 		.setDescription("Show subscription state and the last incident on record.")
-		.setIntegrationTypes(allInstalls())
-		.setContexts(allContexts()),
+		.setIntegrationTypes(ALL_INSTALLS)
+		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
 		.setName("help")
 		.setDescription("How to use the Apocalypse EWS bot.")
-		.setIntegrationTypes(allInstalls())
-		.setContexts(allContexts()),
+		.setIntegrationTypes(ALL_INSTALLS)
+		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
 		.setName("dev-fire")
 		.setDescription("Admin only — synthesize an alert event for testing.")
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-		.setIntegrationTypes(allInstalls())
-		.setContexts(guildOnly()),
+		.setIntegrationTypes(ALL_INSTALLS)
+		.setContexts(GUILD_ONLY),
 ].map((c) => c.toJSON());
 
 /**
@@ -184,9 +162,6 @@ export async function registerCommands(args: {
 		: Routes.applicationCommands(args.clientId);
 	await rest.put(route, { body: commandDefinitions });
 }
-
-/** Where a subscribe/unsubscribe action came from. Closed union — typo = type error. */
-export type SubscribeVia = "command" | "dm" | "mention";
 
 /** Shared dependencies threaded through the client's event handlers. */
 export interface BotDeps {

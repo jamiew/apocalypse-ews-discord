@@ -170,7 +170,7 @@ export const commandDefinitions = [
 export async function registerCommands(args: {
 	token: string;
 	clientId: string;
-	guildId?: Snowflake;
+	guildId?: Snowflake | undefined;
 }): Promise<void> {
 	const rest = new REST({ version: "10" }).setToken(args.token);
 	const route = args.guildId
@@ -186,13 +186,13 @@ export type SubscribeVia = "command" | "dm" | "mention";
 export interface BotDeps {
 	db: DB;
 	/** Discord user id allowed to invoke the hidden /dev-fire admin command. */
-	devAdminUserId?: Snowflake;
+	devAdminUserId?: Snowflake | undefined;
 	/**
 	 * Discord user id that gets DM'd on guild install / subscribe / unsubscribe.
 	 * Used by {@link notifyOperator}. Falls back to {@link devAdminUserId}
 	 * at the call site.
 	 */
-	operatorUserId?: Snowflake;
+	operatorUserId?: Snowflake | undefined;
 }
 
 /** Builds and configures the discord.js client; caller is responsible for `login`. */

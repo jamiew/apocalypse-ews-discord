@@ -122,10 +122,10 @@ describe("commandDefinitions", () => {
 			InteractionContextType.BotDM,
 			InteractionContextType.PrivateChannel,
 		];
-		expect(byName.subscribe?.contexts).toEqual(allCtx);
-		expect(byName.unsubscribe?.contexts).toEqual(allCtx);
-		expect(byName.status?.contexts).toEqual(allCtx);
-		expect(byName.help?.contexts).toEqual(allCtx);
+		expect(byName["subscribe"]?.contexts).toEqual(allCtx);
+		expect(byName["unsubscribe"]?.contexts).toEqual(allCtx);
+		expect(byName["status"]?.contexts).toEqual(allCtx);
+		expect(byName["help"]?.contexts).toEqual(allCtx);
 		// dev-fire stays guild-only — admin testing happens in a server.
 		expect(byName["dev-fire"]?.contexts).toEqual([InteractionContextType.Guild]);
 		// Every command supports both install types.
@@ -137,17 +137,17 @@ describe("commandDefinitions", () => {
 
 	it("gates subscribe/unsubscribe behind ManageGuild and dev-fire behind Administrator", () => {
 		const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
-		expect(byName.subscribe?.default_member_permissions).toBe(
+		expect(byName["subscribe"]?.default_member_permissions).toBe(
 			String(PermissionFlagsBits.ManageGuild),
 		);
-		expect(byName.unsubscribe?.default_member_permissions).toBe(
+		expect(byName["unsubscribe"]?.default_member_permissions).toBe(
 			String(PermissionFlagsBits.ManageGuild),
 		);
 		expect(byName["dev-fire"]?.default_member_permissions).toBe(
 			String(PermissionFlagsBits.Administrator),
 		);
 		// status and help carry no permission gate.
-		expect(byName.status?.default_member_permissions).toBeUndefined();
-		expect(byName.help?.default_member_permissions).toBeUndefined();
+		expect(byName["status"]?.default_member_permissions).toBeUndefined();
+		expect(byName["help"]?.default_member_permissions).toBeUndefined();
 	});
 });

@@ -5,12 +5,12 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 
 const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
-const NODE_ENV = process.env.NODE_ENV ?? "development";
+const NODE_ENV = process.env["NODE_ENV"] ?? "development";
 const IS_TEST = NODE_ENV === "test";
 const IS_PROD = NODE_ENV === "production";
 
-const MIN_LEVEL: LogLevel = isLevel(process.env.LOG_LEVEL)
-	? process.env.LOG_LEVEL
+const MIN_LEVEL: LogLevel = isLevel(process.env["LOG_LEVEL"])
+	? process.env["LOG_LEVEL"]
 	: IS_TEST
 		? "error"
 		: "info";
@@ -19,8 +19,8 @@ const MIN_LEVEL: LogLevel = isLevel(process.env.LOG_LEVEL)
 // `LOG_FILE` is opt-out, not opt-in. Set LOG_FILE="" to disable.
 const LOG_FILE: string | undefined = IS_TEST
 	? undefined
-	: process.env.LOG_FILE !== undefined
-		? process.env.LOG_FILE || undefined
+	: process.env["LOG_FILE"] !== undefined
+		? process.env["LOG_FILE"] || undefined
 		: "./data/ews.log";
 
 if (LOG_FILE) {

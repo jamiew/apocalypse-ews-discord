@@ -6,7 +6,7 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"scripts": {
-		"dev": "tsx --env-file-if-exists=.env watch src/index.ts",
+		"dev": "tsx watch --env-file-if-exists=.env src/index.ts",
 		"build": "tsc -p tsconfig.build.json",
 		"start": "node dist/index.js",
 		"register-commands": "tsx --env-file-if-exists=.env src/scripts/register-commands.ts",

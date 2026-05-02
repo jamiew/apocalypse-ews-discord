@@ -3,111 +3,180 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<title>APOCALYPSE.EWS // DISCORD</title>
+
+		<title>Apocalypse EWS / Discord bot — emergency level 5 alerts</title>
 		<meta
 			name="description"
-			content="Discord bot. Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent."
+			content="A Discord bot that announces when the Apocalypse Early Warning System reaches emergency level 5. Tracked-aircraft anomalies over a rolling 24-hour window. Most days nothing happens."
 		/>
-		<meta property="og:title" content="APOCALYPSE.EWS // DISCORD" />
+		<meta name="author" content="jamiew" />
+		<meta name="theme-color" content="#dbd4cc" />
+		<meta
+			name="keywords"
+			content="apocalypse, early warning system, discord bot, aircraft tracking, private jets, emergency level 5, kyle mcdonald, ews"
+		/>
+
+		<link rel="canonical" href="https://jamiew.github.io/apocalypse-ews-discord/" />
+		<link rel="icon" href="ews-icon.jpg" />
+		<link rel="apple-touch-icon" href="ews-icon.jpg" />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Apocalypse EWS / Discord bot" />
+		<meta property="og:title" content="Apocalypse EWS / Discord bot" />
 		<meta
 			property="og:description"
-			content="Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent."
+			content="When the upstream system reaches emergency level 5, this bot announces it in your subscribed channels and DMs. Otherwise silent."
 		/>
-		<meta property="og:image" content="ews-icon.jpg" />
-		<link rel="icon" href="ews-icon.jpg" />
+		<meta property="og:url" content="https://jamiew.github.io/apocalypse-ews-discord/" />
+		<meta
+			property="og:image"
+			content="https://jamiew.github.io/apocalypse-ews-discord/ews-icon.jpg"
+		/>
+		<meta property="og:image:width" content="320" />
+		<meta property="og:image:height" content="320" />
+		<meta
+			property="og:image:alt"
+			content="Yellow radiation symbol — icon for the Apocalypse EWS Discord bot"
+		/>
+		<meta property="og:locale" content="en_US" />
+
+		<!-- Twitter card -->
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:title" content="Apocalypse EWS / Discord bot" />
+		<meta
+			name="twitter:description"
+			content="Emergency level 5 alerts in your Discord. Tracked-aircraft anomalies, rolling 24h. Otherwise silent."
+		/>
+		<meta
+			name="twitter:image"
+			content="https://jamiew.github.io/apocalypse-ews-discord/ews-icon.jpg"
+		/>
+		<meta
+			name="twitter:image:alt"
+			content="Yellow radiation symbol — icon for the Apocalypse EWS Discord bot"
+		/>
+
 		<link rel="stylesheet" href="style.css" />
+
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "SoftwareApplication",
+				"name": "Apocalypse EWS Discord bot",
+				"description": "A Discord bot that announces when the Apocalypse Early Warning System reaches emergency level 5.",
+				"url": "https://jamiew.github.io/apocalypse-ews-discord/",
+				"applicationCategory": "CommunicationApplication",
+				"operatingSystem": "Discord",
+				"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+				"author": { "@type": "Person", "name": "jamiew" }
+			}
+		</script>
 	</head>
 	<body>
-		<div class="scanlines" aria-hidden="true"></div>
+		<div class="background-wallpaper" aria-hidden="true"></div>
 
-		<header class="hero">
-			<pre class="banner" aria-hidden="true">
+		<div class="app-shell">
+			<section class="panel hero">
+				<pre class="banner" aria-hidden="true">
  ████████████████████████████████
- █  APOCALYPSE.EWS // DISCORD  █▓
- █  CONDITION NORMAL: SILENT   █▓▒
+ █  apocalypse.ews // discord  █▓
+ █  condition normal: silent   █▓▒
  ████████████████████████████████▓▒░
   ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░
    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</pre>
-			<img src="ews-icon.jpg" alt="" class="icon" width="64" height="64" />
-			<h1 class="visually-hidden">APOCALYPSE.EWS // DISCORD</h1>
-			<p class="tagline"><span class="cursor">█</span> tracked-aircraft anomalies / rolling 24h / level 5 → announced</p>
-		</header>
+				<div class="hero-row">
+					<img src="ews-icon.jpg" alt="" width="96" height="96" />
+					<div class="title-block">
+						<h1>Apocalypse EWS / Discord bot</h1>
+						<p class="tagline">
+							Mirror of the
+							<a href="https://ews.kylemcdonald.net" rel="noopener">upstream EWS</a>.
+							Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent.
+						</p>
+					</div>
+				</div>
+				<div class="status-banner">
+					<strong class="ucase">Status —</strong>
+					condition normal <span class="cursor">█</span>
+				</div>
+			</section>
 
-		<main>
-			<section class="block install">
-				<div class="buttons">
+			<section class="panel">
+				<div class="install-grid">
 					<a class="btn btn-primary" id="btn-server" href="#" rel="noopener">
-						<span class="btn-label">ADD TO SERVER ▸</span>
+						<span class="btn-label">Add to server ▸</span>
 						<span class="btn-sub">guild install · slash · @-mention</span>
 					</a>
-					<a class="btn btn-secondary" id="btn-user" href="#" rel="noopener">
-						<span class="btn-label">ADD TO ACCOUNT ▸</span>
+					<a class="btn" id="btn-user" href="#" rel="noopener">
+						<span class="btn-label">Add to your account ▸</span>
 						<span class="btn-sub">user install · DM from anywhere</span>
 					</a>
 				</div>
-				<p class="muted small" id="config-warning">
-					CLIENT_ID NOT SET. Set it in <code>docs/index.html</code>.
+				<p id="config-warning">
+					Client id not set. Edit <code>docs/index.html</code> and replace
+					<code>YOUR_DISCORD_CLIENT_ID</code>.
 				</p>
 			</section>
 
-			<section class="block">
-				<h2>// MISSION</h2>
-				<p>
-					Mirror of the upstream
-					<a href="https://ews.kylemcdonald.net" target="_blank" rel="noopener"
-						>Apocalypse EWS</a
-					>
-					(Kyle McDonald). Most days nothing happens. That is the design.
-				</p>
-			</section>
-
-			<section class="block">
-				<h2>// COMMANDS</h2>
-				<pre class="cmds">
+			<section class="panel">
+				<h2 class="dispatch">// help</h2>
+				<pre>
 /subscribe [channel]    designate alert recipient (this channel, or you)
 /unsubscribe            stand down
-/status                 subscription + last incident
-/help                   refresher</pre>
-				<p class="muted small">
-					In a server: <code>@Apocalypse EWS subscribe</code> works too. In a DM: just say
-					the word.
-				</p>
+/status                 subscription state + last incident
+/help                   refresher
+
+@-mention with subscribe / unsubscribe / status / help — same effect.
+In a DM, just send the word.</pre>
 			</section>
 
-			<section class="block">
-				<h2>// PAYLOAD</h2>
+			<details class="panel more">
+				<summary class="dispatch">// more</summary>
+				<p>
+					When the upstream system reaches <strong>emergency level 5</strong> — unusual
+					private-jet activity sustained — this bot announces it in subscribed Discord
+					channels and direct messages. Most days nothing happens. That is the design.
+				</p>
+				<h3 class="dispatch">// sample payload</h3>
 				<pre class="payload">
 ATTENTION. EMERGENCY LEVEL 5.
 {title}
 {pubDate}
 {link}</pre>
-			</section>
-		</main>
+				<p class="small muted">
+					Source feed:
+					<a href="https://ews.kylemcdonald.net/rss.xml" rel="noopener">rss.xml</a> ·
+					Telegram channel:
+					<a href="https://t.me/apocalypse_ews" rel="noopener">@apocalypse_ews</a>.
+				</p>
+			</details>
 
-		<footer>
-			<p>
-				<a href="https://github.com/jamiew/apocalypse-ews-discord" rel="noopener">bot</a> ·
-				<a href="https://github.com/kylemcdonald/ews" rel="noopener">upstream</a>
-			</p>
-			<p class="muted small">STANDING BY.</p>
-		</footer>
+			<footer>
+				<p>
+					<a href="https://github.com/jamiew/apocalypse-ews-discord" rel="noopener"
+						>bot source</a
+					>
+					·
+					<a href="https://github.com/kylemcdonald/ews" rel="noopener">upstream source</a> ·
+					standing by.
+				</p>
+			</footer>
+		</div>
 
 		<script>
 			const CLIENT_ID = "1499824619333353682";
-
 			(function () {
 				if (!CLIENT_ID || CLIENT_ID === "YOUR_DISCORD_CLIENT_ID") return;
 				const id = encodeURIComponent(CLIENT_ID);
-				const guild =
+				document.getElementById("btn-server").href =
 					`https://discord.com/oauth2/authorize?client_id=${id}` +
 					`&scope=${encodeURIComponent("bot applications.commands")}` +
 					`&permissions=3072&integration_type=0`;
-				const user =
+				document.getElementById("btn-user").href =
 					`https://discord.com/oauth2/authorize?client_id=${id}` +
 					`&scope=${encodeURIComponent("applications.commands")}` +
 					`&integration_type=1`;
-				document.getElementById("btn-server").href = guild;
-				document.getElementById("btn-user").href = user;
 				const warn = document.getElementById("config-warning");
 				if (warn) warn.style.display = "none";
 			})();

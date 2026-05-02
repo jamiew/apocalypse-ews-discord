@@ -5,6 +5,10 @@
  * New Roman body, Courier mono. A small blinking cursor and an ANSI-block
  * banner carry over the bot's terminal-era voice without breaking the
  * print-magazine register.
+ *
+ * Cascade order: base rules first, media queries last. Don't sprinkle
+ * media queries between sections — the cascade will quietly bite you
+ * (e.g. a later 1fr-1fr base rule overriding an earlier 1fr mobile rule).
  */
 
 :root {
@@ -186,35 +190,6 @@ details[open] > summary.dispatch::before {
 	border: 1px solid var(--panel-border);
 	background: #fff;
 }
-@media (max-width: 520px) {
-	.hero-row {
-		grid-template-columns: 64px 1fr;
-		gap: 12px;
-	}
-	.hero-row img {
-		width: 64px;
-		height: 64px;
-	}
-	h1 {
-		font-size: 1.4rem;
-	}
-	.hero .banner {
-		font-size: 9px;
-	}
-	.install-grid {
-		grid-template-columns: 1fr;
-	}
-	body {
-		margin: 4px;
-	}
-	.app-shell {
-		padding: 4px 4px 16px;
-		gap: 8px;
-	}
-	.panel {
-		padding: 12px;
-	}
-}
 .title-block h1 {
 	margin-bottom: 4px;
 }
@@ -361,15 +336,6 @@ pre.payload {
 	margin: 0;
 	color: var(--page-muted);
 }
-@media (max-width: 520px) {
-	.cmds {
-		grid-template-columns: 1fr;
-		row-gap: 2px;
-	}
-	.cmds dd {
-		margin: 0 0 6px 16px;
-	}
-}
 
 /* <details> open state spacing. */
 details.more[open] > *:not(summary) {
@@ -387,4 +353,55 @@ footer {
 }
 footer p {
 	margin: 0;
+}
+
+/* ==========================================================================
+ * Mobile (<= 520px) — last in the file so the cascade always wins.
+ * ========================================================================== */
+@media (max-width: 520px) {
+	body {
+		margin: 4px;
+	}
+	.app-shell {
+		padding: 4px 4px 16px;
+		gap: 8px;
+	}
+	.panel {
+		padding: 12px;
+	}
+	.hero-row {
+		grid-template-columns: 56px 1fr;
+		gap: 12px;
+	}
+	.hero-row img {
+		width: 56px;
+		height: 56px;
+	}
+	h1 {
+		font-size: 1.3rem;
+	}
+	.hero .banner {
+		font-size: 9px;
+	}
+	.install-grid {
+		grid-template-columns: 1fr;
+		gap: 8px;
+	}
+	.btn {
+		padding: 12px 14px;
+	}
+	.cmds {
+		grid-template-columns: 1fr;
+		row-gap: 2px;
+	}
+	.cmds dd {
+		margin: 0 0 6px 16px;
+	}
+	pre {
+		font-size: 0.82rem;
+		padding: 8px 10px;
+	}
+	footer {
+		font-size: 0.8rem;
+	}
 }

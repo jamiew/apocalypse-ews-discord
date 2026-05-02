@@ -65,7 +65,7 @@ sqlite3 data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id DESC LIMIT
 
 ## // DEPLOY
 
-`compose.yaml`:
+First-time, on the host:
 
 ```bash
 cp .env.example .env && $EDITOR .env
@@ -76,6 +76,15 @@ docker compose logs -f bot
 ```
 
 `./data` is bind-mounted — db and log are inspectable from the host. Vercel / Workers / Lambda don't fit (the gateway is a long-lived WebSocket).
+
+Subsequent deploys, from your laptop:
+
+```bash
+cp .deploy.env.example .deploy.env && $EDITOR .deploy.env
+./deploy.sh
+```
+
+`deploy.sh` SSHes once: `git fetch + reset --hard`, `docker compose build --pull`, `up -d --build --force-recreate`, re-registers slash commands, prunes stale images, prints status + tail. Same script, every time.
 
 ## // PAGES
 

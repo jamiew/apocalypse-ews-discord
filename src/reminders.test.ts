@@ -1,5 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ok as assert } from "node:assert/strict";
 import type { Client } from "discord.js";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANNUAL_REMINDER } from "./copy.js";
 import { DB } from "./db.js";
 import { sendDueReminders } from "./reminders.js";
@@ -16,24 +17,21 @@ function makeMockClient(): MockClient {
 	const sentToChannels: MockClient["sentToChannels"] = [];
 	const failures = new Set<string>();
 
-	const userSend = vi.fn(async (id: string, body: string) => {
-		if (failures.has(`user:${id}`)) throw new Error("user send failed");
-		sentToUsers.push({ id, body });
-	});
-	const channelSend = vi.fn(async (id: string, body: string) => {
-		if (failures.has(`channel:${id}`)) throw new Error("channel send failed");
-		sentToChannels.push({ id, body });
-	});
-
 	const client = {
 		users: {
 			fetch: async (id: string) => ({
-				send: (body: string) => userSend(id, body),
+				send: async (body: string) => {
+					if (failures.has(`user:${id}`)) throw new Error("user send failed");
+					sentToUsers.push({ id, body });
+				},
 			}),
 		},
 		channels: {
 			fetch: async (id: string) => ({
-				send: (body: string) => channelSend(id, body),
+				send: async (body: string) => {
+					if (failures.has(`channel:${id}`)) throw new Error("channel send failed");
+					sentToChannels.push({ id, body });
+				},
 			}),
 		},
 	} as unknown as Client;

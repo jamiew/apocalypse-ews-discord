@@ -1,10 +1,10 @@
+import { describe, expect, it } from "bun:test";
 import {
 	ApplicationIntegrationType,
 	ChannelType,
 	InteractionContextType,
 	PermissionFlagsBits,
 } from "discord.js";
-import { describe, expect, it } from "vitest";
 import {
 	classifyDmText,
 	classifyMentionText,

@@ -1,7 +1,7 @@
+import { Database } from "bun:sqlite";
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
 import type { Snowflake } from "discord.js";
 import type { LastAlert } from "./copy.js";
 import { childLogger } from "./log.js";
@@ -170,21 +170,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, "../migrations");
 
 /**
- * SQLite-backed persistence for the bot. Owns one better-sqlite3 handle per
- * process. All queries are sync — better-sqlite3 doesn't do async — so call
+ * SQLite-backed persistence for the bot. Owns one bun:sqlite handle per
+ * process. All queries are sync — bun:sqlite doesn't do async — so call
  * sites read like regular code. WAL is on by default.
  */
 export class DB {
-	private readonly db: Database.Database;
+	private readonly db: Database;
 
 	/** Opens (or creates + migrates) the database at `path`. Pass `:memory:` for tests. */
 	constructor(path: string) {
 		if (path !== ":memory:") {
 			mkdirSync(dirname(resolve(path)), { recursive: true });
 		}
-		this.db = new Database(path);
-		this.db.pragma("journal_mode = WAL");
-		this.db.pragma("foreign_keys = ON");
+		this.db = new Database(path, { create: true });
+		this.db.exec("PRAGMA journal_mode = WAL");
+		this.db.exec("PRAGMA foreign_keys = ON");
 		this.migrate();
 	}
 
@@ -208,7 +208,7 @@ export class DB {
 		const existing = this.findSubscriber(args.kind, args.discordId);
 		if (!existing) {
 			this.db
-				.prepare(
+				.query(
 					`INSERT INTO subscribers (kind, discord_id, guild_id, status, subscribed_at)
            VALUES (?, ?, ?, 'active', ?)`,
 				)
@@ -219,7 +219,7 @@ export class DB {
 			return { created: false, reactivated: false };
 		}
 		this.db
-			.prepare(
+			.query(
 				`UPDATE subscribers
          SET status = 'active', subscribed_at = ?, last_reminded = NULL, guild_id = ?
          WHERE id = ?`,
@@ -230,7 +230,7 @@ export class DB {
 
 	markUnsubscribed(kind: SubscriberKind, discordId: Snowflake): boolean {
 		const result = this.db
-			.prepare(
+			.query(
 				`UPDATE subscribers SET status = 'unsubscribed'
          WHERE kind = ? AND discord_id = ? AND status = 'active'`,
 			)
@@ -239,31 +239,31 @@ export class DB {
 	}
 
 	findSubscriber(kind: SubscriberKind, discordId: Snowflake): Subscriber | undefined {
-		return this.db
-			.prepare<[SubscriberKind, Snowflake], Subscriber>(
-				`SELECT * FROM subscribers WHERE kind = ? AND discord_id = ?`,
-			)
-			.get(kind, discordId);
+		return (
+			this.db
+				.query<Subscriber, [SubscriberKind, Snowflake]>(
+					`SELECT * FROM subscribers WHERE kind = ? AND discord_id = ?`,
+				)
+				.get(kind, discordId) ?? undefined
+		);
 	}
 
 	listActive(kind?: SubscriberKind): Subscriber[] {
 		if (kind) {
 			return this.db
-				.prepare<[SubscriberKind], Subscriber>(
+				.query<Subscriber, [SubscriberKind]>(
 					`SELECT * FROM subscribers WHERE status = 'active' AND kind = ?`,
 				)
 				.all(kind);
 		}
-		return this.db
-			.prepare<[], Subscriber>(`SELECT * FROM subscribers WHERE status = 'active'`)
-			.all();
+		return this.db.query<Subscriber, []>(`SELECT * FROM subscribers WHERE status = 'active'`).all();
 	}
 
 	// Subscribers active for ≥ 1 year and either never reminded or last reminded ≥ 1 year ago.
 	selectDueForReminder(now: Date): Subscriber[] {
 		const cutoff = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
 		return this.db
-			.prepare<[string, string], Subscriber>(
+			.query<Subscriber, [string, string]>(
 				`SELECT * FROM subscribers
          WHERE status = 'active'
            AND subscribed_at <= ?
@@ -274,19 +274,19 @@ export class DB {
 	}
 
 	stampReminded(id: number, now: string): void {
-		this.db.prepare(`UPDATE subscribers SET last_reminded = ? WHERE id = ?`).run(now, id);
+		this.db.query(`UPDATE subscribers SET last_reminded = ? WHERE id = ?`).run(now, id);
 	}
 
 	hasSeenAlert(guid: string): boolean {
 		const row = this.db
-			.prepare<[string], { guid: string }>(`SELECT guid FROM seen_alerts WHERE guid = ?`)
+			.query<{ guid: string }, [string]>(`SELECT guid FROM seen_alerts WHERE guid = ?`)
 			.get(guid);
-		return Boolean(row);
+		return row != null;
 	}
 
 	recordSeenAlert(alert: Omit<SeenAlert, "ingested_at"> & { ingested_at?: string }): void {
 		this.db
-			.prepare(
+			.query(
 				`INSERT OR IGNORE INTO seen_alerts (guid, title, link, pub_date, ingested_at)
          VALUES (?, ?, ?, ?, ?)`,
 			)
@@ -300,9 +300,11 @@ export class DB {
 	}
 
 	lastSeenAlert(): SeenAlert | undefined {
-		return this.db
-			.prepare<[], SeenAlert>(`SELECT * FROM seen_alerts ORDER BY ingested_at DESC LIMIT 1`)
-			.get();
+		return (
+			this.db
+				.query<SeenAlert, []>(`SELECT * FROM seen_alerts ORDER BY ingested_at DESC LIMIT 1`)
+				.get() ?? undefined
+		);
 	}
 
 	lastAlertForDisplay(): LastAlert {
@@ -313,7 +315,7 @@ export class DB {
 
 	/** Read the single-row level snapshot. */
 	getLevelState(): LevelState {
-		const row = this.db.prepare<[], LevelState>(`SELECT * FROM level_state WHERE id = 1`).get();
+		const row = this.db.query<LevelState, []>(`SELECT * FROM level_state WHERE id = 1`).get();
 		if (!row) {
 			// Defensive — migration's INSERT OR IGNORE should have populated it.
 			throw new Error("level_state missing row id=1; was the migration run?");
@@ -329,7 +331,7 @@ export class DB {
 		asOf: string;
 	}): void {
 		this.db
-			.prepare<[number, string | null, number | null, string, string]>(
+			.query(
 				`UPDATE level_state
 				 SET emergency_level = ?, alert_level = ?, z_score = ?, as_of = ?, updated_at = ?
 				 WHERE id = 1`,
@@ -345,7 +347,7 @@ export class DB {
 		try {
 			const payload = input.payload == null ? null : JSON.stringify(input.payload, errorReplacer);
 			this.db
-				.prepare<[EventKind, string | null, string | null, string | null, string | null]>(
+				.query(
 					`INSERT INTO events (kind, guild_id, channel_id, user_id, payload)
            VALUES (?, ?, ?, ?, ?)`,
 				)
@@ -364,7 +366,7 @@ export class DB {
 	/** Recent events, newest first. Useful for spot-checking from a console. */
 	recentEvents(limit = 100): EventRecord[] {
 		return this.db
-			.prepare<[number], EventRecord>(`SELECT * FROM events ORDER BY id DESC LIMIT ?`)
+			.query<EventRecord, [number]>(`SELECT * FROM events ORDER BY id DESC LIMIT ?`)
 			.all(limit);
 	}
 
@@ -372,14 +374,14 @@ export class DB {
 	countEvents(kind: EventKind, sinceIsoTimestamp?: string): number {
 		if (sinceIsoTimestamp) {
 			const row = this.db
-				.prepare<[EventKind, string], { n: number }>(
+				.query<{ n: number }, [EventKind, string]>(
 					`SELECT COUNT(*) AS n FROM events WHERE kind = ? AND ts >= ?`,
 				)
 				.get(kind, sinceIsoTimestamp);
 			return row?.n ?? 0;
 		}
 		const row = this.db
-			.prepare<[EventKind], { n: number }>(`SELECT COUNT(*) AS n FROM events WHERE kind = ?`)
+			.query<{ n: number }, [EventKind]>(`SELECT COUNT(*) AS n FROM events WHERE kind = ?`)
 			.get(kind);
 		return row?.n ?? 0;
 	}

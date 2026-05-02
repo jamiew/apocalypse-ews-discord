@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { DB } from "./db.js";
 import { pollLevelOnce } from "./level-poller.js";
 
@@ -12,15 +12,16 @@ const SAMPLE = (level: number, opts: Partial<{ alertLevel: string; zScore: numbe
 	snapshotGeneratedAt: "2026-05-02T01:30:00+00:00",
 });
 
+const ORIGINAL_FETCH = globalThis.fetch;
+
 function mockFetch(body: unknown, ok = true) {
-	const fn = vi.fn().mockResolvedValue({
-		ok,
-		status: ok ? 200 : 500,
-		statusText: ok ? "OK" : "Internal Server Error",
-		json: async () => body,
-	});
-	vi.stubGlobal("fetch", fn);
-	return fn;
+	globalThis.fetch = (async () =>
+		({
+			ok,
+			status: ok ? 200 : 500,
+			statusText: ok ? "OK" : "Internal Server Error",
+			json: async () => body,
+		}) as Response) as unknown as typeof fetch;
 }
 
 describe("pollLevelOnce", () => {
@@ -32,7 +33,7 @@ describe("pollLevelOnce", () => {
 
 	afterEach(() => {
 		db.close();
-		vi.unstubAllGlobals();
+		globalThis.fetch = ORIGINAL_FETCH;
 	});
 
 	it("records first observation but does NOT fire onLevelChange", async () => {

@@ -1,5 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ok as assert } from "node:assert/strict";
 import type { Client } from "discord.js";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { DB } from "./db.js";
 import { fanOutAlert, fanOutLevelChange } from "./discord.js";
 
@@ -31,23 +32,24 @@ function makeMockClient(): MockClient {
 	const failChannelIds = new Set<string>();
 	const missingChannelIds = new Set<string>();
 
-	const userSend = vi.fn(async (id: string, body: string) => {
-		if (failUserIds.has(id)) throw new Error(`user ${id} blocked the bot`);
-		usersSent.push({ id, body });
-	});
-	const channelSend = vi.fn(async (id: string, body: string) => {
-		if (failChannelIds.has(id)) throw new Error(`channel ${id} unsendable`);
-		channelsSent.push({ id, body });
-	});
-
 	const client = {
 		users: {
-			fetch: async (id: string) => ({ send: (body: string) => userSend(id, body) }),
+			fetch: async (id: string) => ({
+				send: async (body: string) => {
+					if (failUserIds.has(id)) throw new Error(`user ${id} blocked the bot`);
+					usersSent.push({ id, body });
+				},
+			}),
 		},
 		channels: {
 			fetch: async (id: string) => {
 				if (missingChannelIds.has(id)) return null;
-				return { send: (body: string) => channelSend(id, body) };
+				return {
+					send: async (body: string) => {
+						if (failChannelIds.has(id)) throw new Error(`channel ${id} unsendable`);
+						channelsSent.push({ id, body });
+					},
+				};
 			},
 		},
 	} as unknown as Client;

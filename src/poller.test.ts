@@ -1,5 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as RSSParserModule from "rss-parser";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DB } from "./db.js";
 import { pollOnce } from "./poller.js";
 
@@ -19,7 +19,7 @@ describe("pollOnce", () => {
 
 	afterEach(() => {
 		db.close();
-		vi.restoreAllMocks();
+		mock.restore();
 	});
 
 	it("emits new items once and skips them on the next poll", async () => {
@@ -29,9 +29,9 @@ describe("pollOnce", () => {
 			link: "https://example.com/alert/1",
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
-		const spy = vi
-			.spyOn(RSSParserModule.default.prototype, "parseURL")
-			.mockResolvedValue(SAMPLE_FEED([item]) as never);
+		const spy = spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
+			SAMPLE_FEED([item]) as never,
+		);
 
 		const seen: string[] = [];
 		const first = await pollOnce({
@@ -67,7 +67,7 @@ describe("pollOnce", () => {
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
 		// RSS feeds list newest-first; poller should deliver oldest-first.
-		vi.spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
+		spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
 			SAMPLE_FEED([newer, older]) as never,
 		);
 
@@ -86,7 +86,7 @@ describe("pollOnce", () => {
 			link: "https://example.com/x",
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
-		vi.spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
+		spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
 			SAMPLE_FEED([item]) as never,
 		);
 

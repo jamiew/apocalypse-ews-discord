@@ -1,4 +1,5 @@
-import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ok as assert } from "node:assert/strict";
 import { DB, type SubscriberKind } from "./db.js";
 
 function subId(db: DB, kind: SubscriberKind, discordId: string): number {

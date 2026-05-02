@@ -35,7 +35,7 @@ import {
 	pingPongLine,
 	statusLine,
 } from "./copy.js";
-import type { DB, Subscriber } from "./db.js";
+import type { DB, Subscriber, SubscriberKind } from "./db.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("discord");
@@ -176,6 +176,9 @@ export async function registerCommands(args: {
 		: Routes.applicationCommands(args.clientId);
 	await rest.put(route, { body: commandDefinitions });
 }
+
+/** Where a subscribe/unsubscribe action came from. Closed union — typo = type error. */
+export type SubscribeVia = "command" | "dm" | "mention";
 
 /** Shared dependencies threaded through the client's event handlers. */
 export interface BotDeps {
@@ -339,18 +342,15 @@ async function cmdSubscribe(
 			await interaction.reply({ content: GUILD_ALREADY_SUBSCRIBED, ephemeral: true });
 			return;
 		}
-		deps.db.recordEvent({
-			kind: "subscribe",
+		announceSubscribe(client, deps, {
+			kind: "guild_channel",
+			via: "command",
 			guildId: interaction.guildId,
 			channelId: target.id,
 			userId: interaction.user.id,
-			payload: { kind: "guild_channel", reactivated: result.reactivated },
+			userTag: interaction.user.tag,
+			reactivated: result.reactivated,
 		});
-		void notifyOperator(
-			client,
-			deps,
-			`SUBSCRIBE. guild_channel guild=${interaction.guildId} channel=${target.id} by user=${interaction.user.tag} (${interaction.user.id})${result.reactivated ? " (reactivated)" : ""}`,
-		);
 		await interaction.reply({ content: GUILD_SUBSCRIBE_OK });
 		return;
 	}
@@ -365,16 +365,15 @@ async function cmdSubscribe(
 	});
 	const fresh = result.created || result.reactivated;
 	if (fresh) {
-		deps.db.recordEvent({
-			kind: "subscribe",
+		announceSubscribe(client, deps, {
+			kind: "dm",
+			via: "command",
+			guildId: null,
+			channelId: null,
 			userId,
-			payload: { kind: "dm", reactivated: result.reactivated, via: "command" },
+			userTag: interaction.user.tag,
+			reactivated: result.reactivated,
 		});
-		void notifyOperator(
-			client,
-			deps,
-			`SUBSCRIBE. dm user=${interaction.user.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=command`,
-		);
 	}
 	await interaction.reply({ content: fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED });
 }
@@ -388,18 +387,14 @@ async function cmdUnsubscribe(
 		if (!interaction.channelId) return;
 		const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
 		if (removed) {
-			deps.db.recordEvent({
-				kind: "unsubscribe",
+			announceUnsubscribe(client, deps, {
+				kind: "guild_channel",
+				via: "command",
 				guildId: interaction.guildId,
 				channelId: interaction.channelId,
 				userId: interaction.user.id,
-				payload: { kind: "guild_channel" },
+				userTag: interaction.user.tag,
 			});
-			void notifyOperator(
-				client,
-				deps,
-				`UNSUBSCRIBE. guild_channel guild=${interaction.guildId} channel=${interaction.channelId} by user=${interaction.user.tag} (${interaction.user.id})`,
-			);
 		}
 		await interaction.reply({
 			content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
@@ -411,16 +406,14 @@ async function cmdUnsubscribe(
 	const userId = interaction.user.id;
 	const removed = deps.db.markUnsubscribed("dm", userId);
 	if (removed) {
-		deps.db.recordEvent({
-			kind: "unsubscribe",
+		announceUnsubscribe(client, deps, {
+			kind: "dm",
+			via: "command",
+			guildId: null,
+			channelId: null,
 			userId,
-			payload: { kind: "dm", via: "command" },
+			userTag: interaction.user.tag,
 		});
-		void notifyOperator(
-			client,
-			deps,
-			`UNSUBSCRIBE. dm user=${interaction.user.tag} (${userId}) via=command`,
-		);
 	}
 	await interaction.reply({ content: removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED });
 }
@@ -481,16 +474,15 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 		});
 		const fresh = result.created || result.reactivated;
 		if (fresh) {
-			deps.db.recordEvent({
-				kind: "subscribe",
+			announceSubscribe(client, deps, {
+				kind: "dm",
+				via: "dm",
+				guildId: null,
+				channelId: null,
 				userId,
-				payload: { kind: "dm", reactivated: result.reactivated, via: "dm" },
+				userTag: message.author.tag,
+				reactivated: result.reactivated,
 			});
-			void notifyOperator(
-				client,
-				deps,
-				`SUBSCRIBE. dm user=${message.author.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=dm`,
-			);
 		}
 		await reply(fresh ? DM_SUBSCRIBE_OK : DM_ALREADY_SUBSCRIBED);
 		return;
@@ -499,12 +491,14 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 	if (intent === "unsubscribe") {
 		const removed = deps.db.markUnsubscribed("dm", userId);
 		if (removed) {
-			deps.db.recordEvent({ kind: "unsubscribe", userId, payload: { kind: "dm", via: "dm" } });
-			void notifyOperator(
-				client,
-				deps,
-				`UNSUBSCRIBE. dm user=${message.author.tag} (${userId}) via=dm`,
-			);
+			announceUnsubscribe(client, deps, {
+				kind: "dm",
+				via: "dm",
+				guildId: null,
+				channelId: null,
+				userId,
+				userTag: message.author.tag,
+			});
 		}
 		await reply(removed ? DM_UNSUBSCRIBE_OK : DM_NOT_SUBSCRIBED);
 		return;
@@ -586,36 +580,29 @@ async function handleMention(
 			});
 			const fresh = result.created || result.reactivated;
 			if (fresh) {
-				deps.db.recordEvent({
-					kind: "subscribe",
+				announceSubscribe(client, deps, {
+					kind: "guild_channel",
+					via: "mention",
 					guildId,
 					channelId,
 					userId,
-					payload: { kind: "guild_channel", reactivated: result.reactivated, via: "mention" },
+					userTag: message.author.tag,
+					reactivated: result.reactivated,
 				});
-				void notifyOperator(
-					client,
-					deps,
-					`SUBSCRIBE. guild_channel guild=${guildId} channel=${channelId} by user=${message.author.tag} (${userId})${result.reactivated ? " (reactivated)" : ""} via=mention`,
-				);
 			}
 			await reply(fresh ? GUILD_SUBSCRIBE_OK : GUILD_ALREADY_SUBSCRIBED);
 			return;
 		}
 		const removed = deps.db.markUnsubscribed("guild_channel", channelId);
 		if (removed) {
-			deps.db.recordEvent({
-				kind: "unsubscribe",
+			announceUnsubscribe(client, deps, {
+				kind: "guild_channel",
+				via: "mention",
 				guildId,
 				channelId,
 				userId,
-				payload: { kind: "guild_channel", via: "mention" },
+				userTag: message.author.tag,
 			});
-			void notifyOperator(
-				client,
-				deps,
-				`UNSUBSCRIBE. guild_channel guild=${guildId} channel=${channelId} by user=${message.author.tag} (${userId}) via=mention`,
-			);
 		}
 		await reply(removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED);
 		return;
@@ -697,6 +684,64 @@ async function notifyOperator(client: Client, deps: BotDeps, content: string): P
 	} catch (err) {
 		log.warn("operator notify failed", { err, operatorId: id });
 	}
+}
+
+interface AnnounceArgs {
+	kind: SubscriberKind;
+	via: SubscribeVia;
+	guildId: Snowflake | null;
+	channelId: Snowflake | null;
+	userId: Snowflake;
+	userTag: string;
+}
+
+/** Format the operator-facing target string. Centralised so all DMs read alike. */
+function formatTarget(
+	args: Pick<AnnounceArgs, "kind" | "guildId" | "channelId" | "userId" | "userTag">,
+): string {
+	return args.kind === "guild_channel"
+		? `guild_channel guild=${args.guildId} channel=${args.channelId}`
+		: `dm user=${args.userTag} (${args.userId})`;
+}
+
+/**
+ * Record a successful subscribe in the events table and DM the operator.
+ * One callsite per intent path (slash command guild / DM, plain DM, @-mention)
+ * so the event payload and operator message can never drift apart.
+ */
+function announceSubscribe(
+	client: Client,
+	deps: BotDeps,
+	args: AnnounceArgs & { reactivated: boolean },
+): void {
+	deps.db.recordEvent({
+		kind: "subscribe",
+		guildId: args.guildId,
+		channelId: args.channelId,
+		userId: args.userId,
+		payload: { kind: args.kind, via: args.via, reactivated: args.reactivated },
+	});
+	void notifyOperator(
+		client,
+		deps,
+		`SUBSCRIBE. ${formatTarget(args)} by user=${args.userTag} (${args.userId})${args.reactivated ? " (reactivated)" : ""} via=${args.via}`,
+	);
+}
+
+/** Record a successful unsubscribe in the events table and DM the operator. */
+function announceUnsubscribe(client: Client, deps: BotDeps, args: AnnounceArgs): void {
+	deps.db.recordEvent({
+		kind: "unsubscribe",
+		guildId: args.guildId,
+		channelId: args.channelId,
+		userId: args.userId,
+		payload: { kind: args.kind, via: args.via },
+	});
+	void notifyOperator(
+		client,
+		deps,
+		`UNSUBSCRIBE. ${formatTarget(args)} by user=${args.userTag} (${args.userId}) via=${args.via}`,
+	);
 }
 
 function isSendable(channel: unknown): channel is TextBasedChannel & {

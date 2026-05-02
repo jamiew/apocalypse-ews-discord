@@ -1,13 +1,12 @@
 {
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"lib": ["ES2023"],
-		"outDir": "dist",
-		"rootDir": "src",
-		"strict": true,
+		// Bun executes TS directly — these are typecheck-only options. No outDir,
+		// no emit, no sourcemaps. `tsc --noEmit` is the gate.
+		"target": "ES2023",
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
 		"types": ["bun"],
+		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
 		"noImplicitReturns": true,
@@ -18,8 +17,9 @@
 		"skipLibCheck": true,
 		"resolveJsonModule": true,
 		"forceConsistentCasingInFileNames": true,
-		"declaration": false,
-		"sourceMap": true
+		"noEmit": true,
+		"verbatimModuleSyntax": false,
+		"allowImportingTsExtensions": true
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts", "bun-tests/**/*.ts"]
 }

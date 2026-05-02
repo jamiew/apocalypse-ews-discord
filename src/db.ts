@@ -147,6 +147,24 @@ export interface Subscriber {
 	last_reminded: string | null;
 }
 
+/**
+ * Project a Subscriber onto the (guildId, channelId, userId) triple used as
+ * the event-row "where did this happen" columns. Avoids inlining the same
+ * `kind === "guild_channel" ? sub.discord_id : null` ternary at every event
+ * recording site.
+ */
+export function subscriberAddress(sub: Subscriber): {
+	guildId: Snowflake | null;
+	channelId: Snowflake | null;
+	userId: Snowflake | null;
+} {
+	return {
+		guildId: sub.guild_id,
+		channelId: sub.kind === "guild_channel" ? sub.discord_id : null,
+		userId: sub.kind === "dm" ? sub.discord_id : null,
+	};
+}
+
 /** A row from seen_alerts — every RSS item the poller has ingested. */
 export interface SeenAlert {
 	guid: string;

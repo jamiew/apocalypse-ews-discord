@@ -37,7 +37,13 @@ import {
 	pingPongLine,
 	statusLine,
 } from "./copy.js";
-import type { DB, Subscriber, SubscriberKind } from "./db.js";
+import {
+	type DB,
+	type EventPayloadByKind,
+	type Subscriber,
+	type SubscriberKind,
+	subscriberAddress,
+} from "./db.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("discord");
@@ -614,99 +620,68 @@ async function handleMention(
 	await reply(MENTION_UNKNOWN);
 }
 
+type AlertDispatchPayload = EventPayloadByKind["alert_dispatch_ok"];
+
 /**
- * Delivers `alert` to every active subscriber. Per-subscriber failures are
- * caught and recorded as `alert_dispatch_fail` events; the function never
- * throws to the caller. Returns aggregate sent/failed counts.
+ * Shared core. Delivers `body` to every active subscriber, records one
+ * `alert_dispatch_ok` / `alert_dispatch_fail` per recipient with the meta
+ * `buildMeta(sub)` returns. Per-recipient failures are caught individually
+ * and never throw to the caller.
  */
-export async function fanOutAlert(
+async function fanOut(
 	client: Client,
 	deps: BotDeps,
-	alert: AlertItem & { guid: string },
+	body: string,
+	buildMeta: (sub: Subscriber) => AlertDispatchPayload,
 ): Promise<{ sent: number; failed: number }> {
 	const subs = deps.db.listActive();
 	let sent = 0;
 	let failed = 0;
-	const body = alertPayload(alert);
 	for (const sub of subs) {
-		const eventBase = {
-			guildId: sub.guild_id,
-			channelId: sub.kind === "guild_channel" ? sub.discord_id : null,
-			userId: sub.kind === "dm" ? sub.discord_id : null,
-		};
+		const where = subscriberAddress(sub);
+		const meta = buildMeta(sub);
 		try {
 			await sendToSubscriber(client, sub, body);
 			sent++;
-			deps.db.recordEvent({
-				kind: "alert_dispatch_ok",
-				...eventBase,
-				payload: { source: "rss", guid: alert.guid, kind: sub.kind },
-			});
+			deps.db.recordEvent({ kind: "alert_dispatch_ok", ...where, payload: meta });
 		} catch (err) {
 			failed++;
 			log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
 			deps.db.recordEvent({
 				kind: "alert_dispatch_fail",
-				...eventBase,
-				payload: { source: "rss", guid: alert.guid, kind: sub.kind, err },
+				...where,
+				payload: { ...meta, err },
 			});
 		}
 	}
 	return { sent, failed };
 }
 
-/**
- * Delivers a level-change announcement to every active subscriber. Same
- * fan-out shape as {@link fanOutAlert} but the body comes from
- * {@link levelChangePayload} and the dispatch events carry
- * `source: "level_change"` so they're distinguishable from RSS-driven
- * level-5 incidents in the audit log.
- */
-export async function fanOutLevelChange(
+/** RSS-driven level-5 incident dispatch. */
+export function fanOutAlert(
+	client: Client,
+	deps: BotDeps,
+	alert: AlertItem & { guid: string },
+): Promise<{ sent: number; failed: number }> {
+	return fanOut(client, deps, alertPayload(alert), (sub) => ({
+		source: "rss",
+		guid: alert.guid,
+		kind: sub.kind,
+	}));
+}
+
+/** Level-poller-driven transition dispatch. */
+export function fanOutLevelChange(
 	client: Client,
 	deps: BotDeps,
 	change: LevelChange,
 ): Promise<{ sent: number; failed: number }> {
-	const subs = deps.db.listActive();
-	let sent = 0;
-	let failed = 0;
-	const body = levelChangePayload(change);
-	for (const sub of subs) {
-		const eventBase = {
-			guildId: sub.guild_id,
-			channelId: sub.kind === "guild_channel" ? sub.discord_id : null,
-			userId: sub.kind === "dm" ? sub.discord_id : null,
-		};
-		try {
-			await sendToSubscriber(client, sub, body);
-			sent++;
-			deps.db.recordEvent({
-				kind: "alert_dispatch_ok",
-				...eventBase,
-				payload: {
-					source: "level_change",
-					level: change.level,
-					prevLevel: change.prevLevel,
-					kind: sub.kind,
-				},
-			});
-		} catch (err) {
-			failed++;
-			log.error("level deliver failed", { err, kind: sub.kind, address: sub.discord_id });
-			deps.db.recordEvent({
-				kind: "alert_dispatch_fail",
-				...eventBase,
-				payload: {
-					source: "level_change",
-					level: change.level,
-					prevLevel: change.prevLevel,
-					kind: sub.kind,
-					err,
-				},
-			});
-		}
-	}
-	return { sent, failed };
+	return fanOut(client, deps, levelChangePayload(change), (sub) => ({
+		source: "level_change",
+		level: change.level,
+		prevLevel: change.prevLevel,
+		kind: sub.kind,
+	}));
 }
 
 /**

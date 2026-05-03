@@ -231,10 +231,11 @@ describe("fanOutLevelChange", () => {
 
 		const allBodies = [...mock.usersSent, ...mock.channelsSent].map((s) => s.body);
 		for (const body of allBodies) {
-			expect(body).toContain("WARNING. Emergency level 4.");
-			expect(body).toContain("Was 3, now 4.");
-			expect(body).toContain("z=4.70");
-			expect(body).toContain("https://ews.kylemcdonald.net");
+			expect(body).toContain("🔴 APOCALYPSE EWS // ALERT LEVEL INCREASE");
+			expect(body).toContain("WARNING: LEVEL 4");
+			expect(body).toContain("Level 3 -> level 4.");
+			expect(body).toContain("Z............. 4.70");
+			expect(body).toContain("<https://ews.kylemcdonald.net>");
 		}
 	});
 
@@ -254,7 +255,7 @@ describe("fanOutLevelChange", () => {
 		});
 	});
 
-	it("falls cleanly with the Stand-down header on a drop", async () => {
+	it("uses the downgrade banner on a drop", async () => {
 		seedSubscribers(db, [{ kind: "dm", id: "u" }]);
 		const mock = makeMockClient();
 		await fanOutLevelChange(mock.client, deps(), {
@@ -264,7 +265,8 @@ describe("fanOutLevelChange", () => {
 			zScore: -2.1,
 			asOf: "2026-05-02T02:00:00+00:00",
 		});
-		expect(mock.usersSent[0]?.body).toContain("Stand-down. Emergency level returned to 1.");
+		expect(mock.usersSent[0]?.body).toContain("✅ apocalypse ews // alert level downgraded");
+		expect(mock.usersSent[0]?.body).not.toContain("STAND-DOWN.");
 	});
 
 	it("records alert_dispatch_fail on per-recipient failure with source=level_change", async () => {

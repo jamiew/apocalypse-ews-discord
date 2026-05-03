@@ -43,22 +43,25 @@ describe("statusLine", () => {
 			statusLine({
 				subscribed: true,
 				lastAlert: { title: "Alert.", pubDate: "Thu, 30 Apr 2026 12:00:00 GMT" },
+				currentLevel: 2,
 			}),
-		).toBe("SUBSCRIBED. Last: Thu, 30 Apr 2026 12:00:00 GMT — Alert..");
+		).toBe("SUBSCRIBED. Level: 2. Last level 5 alert: Thu, 30 Apr 2026 12:00:00 GMT — Alert..");
 	});
 
 	it("renders not-subscribed + no alert on record", () => {
-		expect(statusLine({ subscribed: false, lastAlert: null })).toBe("NOT SUBSCRIBED. Last: none.");
+		expect(statusLine({ subscribed: false, lastAlert: null, currentLevel: null })).toBe(
+			"NOT SUBSCRIBED. Level: unknown. Last level 5 alert: none.",
+		);
 	});
 });
 
 describe("pingPongLine", () => {
 	it("uses lowercase 'subscribed' and 'still here' framing", () => {
-		expect(pingPongLine({ subscribed: true, lastAlert: null })).toBe(
-			"Still here. Last: none. Status: subscribed.",
+		expect(pingPongLine({ subscribed: true, lastAlert: null, currentLevel: 2 })).toBe(
+			"Still here. Level: 2. Last level 5 alert: none. Status: subscribed.",
 		);
-		expect(pingPongLine({ subscribed: false, lastAlert: null })).toBe(
-			"Still here. Last: none. Status: not subscribed.",
+		expect(pingPongLine({ subscribed: false, lastAlert: null, currentLevel: null })).toBe(
+			"Still here. Level: unknown. Last level 5 alert: none. Status: not subscribed.",
 		);
 	});
 });
@@ -69,57 +72,71 @@ describe("levelChangePayload", () => {
 		zScore: 4.7,
 		asOf: "2026-05-02T01:29:50+00:00",
 	};
+	const now = new Date("2026-05-02T02:09:50+00:00");
 
 	it("uses ATTENTION header for level 5 rising", () => {
-		const out = levelChangePayload({ ...base, level: 5, prevLevel: 4 });
-		expect(out).toMatch(/^ATTENTION\. EMERGENCY LEVEL 5\.$/m);
-		expect(out).toContain("Was 4, now 5.");
+		const out = levelChangePayload({ ...base, level: 5, prevLevel: 4 }, { now });
+		expect(out).toContain("🚨 APOCALYPSE EWS // ALERT LEVEL INCREASE");
+		expect(out).toContain("ATTENTION: LEVEL 5");
+		expect(out).toContain("Level 4 -> level 5.");
 	});
 
 	it("uses WARNING for level 4 rising", () => {
-		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 });
-		expect(out).toMatch(/^WARNING\. Emergency level 4\.$/m);
+		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 }, { now });
+		expect(out).toContain("🔴 APOCALYPSE EWS // ALERT LEVEL INCREASE");
+		expect(out).toContain("WARNING: LEVEL 4");
 	});
 
 	it("uses ELEVATED for level 3 rising", () => {
-		const out = levelChangePayload({ ...base, level: 3, prevLevel: 2 });
-		expect(out).toMatch(/^ELEVATED\. Emergency level 3\.$/m);
+		const out = levelChangePayload({ ...base, level: 3, prevLevel: 2 }, { now });
+		expect(out).toContain("🟠 APOCALYPSE EWS // ALERT LEVEL INCREASE");
+		expect(out).toContain("ELEVATED: LEVEL 3");
 	});
 
 	it("uses Notice for level 2 rising", () => {
-		const out = levelChangePayload({ ...base, level: 2, prevLevel: 1 });
-		expect(out).toMatch(/^Notice\. Emergency level 2\.$/m);
+		const out = levelChangePayload({ ...base, level: 2, prevLevel: 1 }, { now });
+		expect(out).toContain("🟡 APOCALYPSE EWS // ALERT LEVEL INCREASE");
+		expect(out).toContain("NOTICE: LEVEL 2");
 	});
 
-	it("renders Stand-down on a falling transition", () => {
-		const out = levelChangePayload({ ...base, level: 1, prevLevel: 5 });
-		expect(out).toMatch(/^Stand-down\. Emergency level returned to 1\.$/m);
-		expect(out).toContain("Was 5, now 1.");
+	it("renders a downgrade banner on a falling transition", () => {
+		const out = levelChangePayload({ ...base, level: 1, prevLevel: 5 }, { now });
+		expect(out).toContain("✅ apocalypse ews // alert level downgraded");
+		expect(out).not.toContain("STAND-DOWN.");
+		expect(out).toContain("Level 5 -> level 1.");
 	});
 
-	it("formats the metadata tail with label, z-score, asOf", () => {
-		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 });
-		expect(out).toContain("label: elevated");
-		expect(out).toContain("z=4.70");
-		expect(out).toContain("as of 2026-05-02T01:29:50+00:00");
-		expect(out).toContain(SOURCE_URL);
+	it("formats label, z-score, timestamp, age, and the source URL", () => {
+		const out = levelChangePayload({ ...base, level: 4, prevLevel: 3 }, { now });
+		expect(out).toContain("```text");
+		expect(out).toContain("LABEL......... elevated");
+		expect(out).toContain("Z............. 4.70");
+		expect(out).toContain("TIMESTAMP..... 2026-05-02T01:29:50+00:00");
+		expect(out).toContain("AGE........... 40 minutes ago");
+		expect(out).toContain(`<${SOURCE_URL}>`);
 	});
 
 	it("omits absent metadata cleanly", () => {
-		const out = levelChangePayload({
-			level: 2,
-			prevLevel: 1,
-			alertLevel: null,
-			zScore: null,
-			asOf: null,
-		});
-		// header + fromTo + source URL — no orphan metadata line
-		expect(out.split("\n")).toEqual(["Notice. Emergency level 2.", "Was 1, now 2.", SOURCE_URL]);
+		const out = levelChangePayload(
+			{
+				level: 2,
+				prevLevel: 1,
+				alertLevel: null,
+				zScore: null,
+				asOf: null,
+			},
+			{ now },
+		);
+		expect(out).toContain("Level 1 -> level 2.");
+		expect(out).not.toContain("LABEL.........");
+		expect(out).not.toContain("Z.............");
+		expect(out).not.toContain("TIMESTAMP.....");
+		expect(out).not.toContain("AGE...........");
 	});
 
-	it("first observation (prevLevel null) reads as a new observation", () => {
-		const out = levelChangePayload({ ...base, level: 3, prevLevel: null });
-		expect(out).toContain("New observation: level 3.");
+	it("first observation formats an unknown previous level", () => {
+		const out = levelChangePayload({ ...base, level: 3, prevLevel: null }, { now });
+		expect(out).toContain("Level unknown -> level 3.");
 	});
 });
 

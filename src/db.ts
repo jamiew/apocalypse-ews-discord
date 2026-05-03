@@ -43,8 +43,8 @@ export interface EventRecord {
 }
 
 export type SubscribeVia = "command" | "dm" | "mention";
-export type DmIntent = "subscribe" | "unsubscribe" | "other";
-export type MentionIntent = DmIntent | "status" | "help";
+export type DmIntent = "subscribe" | "unsubscribe" | "status" | "help" | "other";
+export type MentionIntent = DmIntent;
 
 interface AlertDispatchRssMeta {
 	source: "rss";

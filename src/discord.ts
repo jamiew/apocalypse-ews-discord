@@ -51,25 +51,99 @@ import { childLogger } from "./log.js";
 
 const log = childLogger("discord");
 
-const SUBSCRIBE_KEYWORDS = new Set(["subscribe", "start", "yes", "y"]);
-const UNSUBSCRIBE_KEYWORDS = new Set(["unsubscribe", "stop", "cancel", "quit", "end"]);
-const STATUS_KEYWORDS = new Set(["status", "state"]);
-const HELP_KEYWORDS = new Set(["help", "?"]);
+type FreeTextIntent = Exclude<MentionIntent, "other">;
+
+const INTENT_PATTERNS: Record<FreeTextIntent, readonly RegExp[]> = {
+	unsubscribe: [
+		/^unsubscribe$/,
+		/^unsub$/,
+		/^stop$/,
+		/^cancel$/,
+		/^quit$/,
+		/^end$/,
+		/^remove$/,
+		/\bunsubscribe\b/,
+		/\bunsub\b/,
+		/\bopt out\b/,
+		/\bstand down\b/,
+		/\bremove me\b/,
+	],
+	subscribe: [
+		/^subscribe$/,
+		/^sub$/,
+		/^start$/,
+		/^yes$/,
+		/^y$/,
+		/\bsubscribe\b/,
+		/\bopt in\b/,
+		/\bsign me up\b/,
+		/\badd me\b/,
+	],
+	status: [
+		/^status$/,
+		/^state$/,
+		/^level$/,
+		/\bstatus\b/,
+		/\bstate\b/,
+		/\bcurrent level\b/,
+		/\bwhat(?:'s| is) (?:the |my )?status\b/,
+		/\bwhat(?:'s| is) (?:the |my )?level\b/,
+	],
+	help: [
+		/^\?$/,
+		/^help$/,
+		/^commands?$/,
+		/^options?$/,
+		/^info$/,
+		/\bhelp\b/,
+		/\bcommands?\b/,
+		/\boptions?\b/,
+		/\bwhat can you do\b/,
+		/\bhow does this work\b/,
+	],
+};
+
+function normalizeFreeText(raw: string): string {
+	return raw
+		.trim()
+		.toLowerCase()
+		.replaceAll("’", "'")
+		.replace(/[^a-z0-9?'\s]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function classifyFreeText(raw: string): MentionIntent {
+	const text = normalizeFreeText(raw);
+	if (!text) return "other";
+
+	let best: { intent: FreeTextIntent; index: number; priority: number } | null = null;
+	const intents = Object.entries(INTENT_PATTERNS) as [FreeTextIntent, readonly RegExp[]][];
+
+	for (const [priority, [intent, patterns]] of intents.entries()) {
+		for (const pattern of patterns) {
+			const match = pattern.exec(text);
+			const index = match?.index;
+			if (index == null) continue;
+			if (
+				best == null ||
+				index < best.index ||
+				(index === best.index && priority < best.priority)
+			) {
+				best = { intent, index, priority };
+			}
+		}
+	}
+
+	return best?.intent ?? "other";
+}
 
 export function classifyDmText(raw: string): DmIntent {
-	const text = raw.trim().toLowerCase();
-	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
-	if (UNSUBSCRIBE_KEYWORDS.has(text)) return "unsubscribe";
-	return "other";
+	return classifyFreeText(raw);
 }
 
 export function classifyMentionText(raw: string): MentionIntent {
-	const text = raw.trim().toLowerCase();
-	if (SUBSCRIBE_KEYWORDS.has(text)) return "subscribe";
-	if (UNSUBSCRIBE_KEYWORDS.has(text)) return "unsubscribe";
-	if (STATUS_KEYWORDS.has(text)) return "status";
-	if (HELP_KEYWORDS.has(text)) return "help";
-	return "other";
+	return classifyFreeText(raw);
 }
 
 export function stripMention(content: string, botUserId: Snowflake): string {
@@ -127,7 +201,7 @@ export const commandDefinitions = [
 		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
 		.setName("status")
-		.setDescription("Show subscription state and the last incident on record.")
+		.setDescription("Show subscription state, current level, and the last level 5 alert.")
 		.setIntegrationTypes(ALL_INSTALLS)
 		.setContexts(ALL_CONTEXTS),
 	new SlashCommandBuilder()
@@ -394,6 +468,7 @@ async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps
 		content: statusLine({
 			subscribed: sub?.status === "active",
 			lastAlert: deps.db.lastAlertForDisplay(),
+			currentLevel: deps.db.getLevelState().emergency_level,
 		}),
 		ephemeral: true,
 	});
@@ -471,7 +546,23 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 		return;
 	}
 
+	if (intent === "help") {
+		await reply(HELP);
+		return;
+	}
+
 	const sub = deps.db.findSubscriber("dm", userId);
+
+	if (intent === "status") {
+		await reply(
+			statusLine({
+				subscribed: sub?.status === "active",
+				lastAlert: deps.db.lastAlertForDisplay(),
+				currentLevel: deps.db.getLevelState().emergency_level,
+			}),
+		);
+		return;
+	}
 
 	if (!sub) {
 		await reply(DM_OPT_IN_PROMPT);
@@ -482,6 +573,7 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 		pingPongLine({
 			subscribed: sub.status === "active",
 			lastAlert: deps.db.lastAlertForDisplay(),
+			currentLevel: deps.db.getLevelState().emergency_level,
 		}),
 	);
 }
@@ -523,6 +615,7 @@ async function handleMention(
 			statusLine({
 				subscribed: sub?.status === "active",
 				lastAlert: deps.db.lastAlertForDisplay(),
+				currentLevel: deps.db.getLevelState().emergency_level,
 			}),
 		);
 		return;

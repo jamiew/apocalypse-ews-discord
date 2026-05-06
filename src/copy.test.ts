@@ -4,7 +4,6 @@ import {
 	alertPayload,
 	DM_OPT_IN_PROMPT,
 	GUILD_WELCOME,
-	guildWelcomeOwnerDm,
 	HELP,
 	type LevelChange,
 	levelChangePayload,
@@ -146,7 +145,6 @@ describe("levelChangePayload", () => {
 describe("user-facing strings", () => {
 	const allCopy = [
 		GUILD_WELCOME,
-		guildWelcomeOwnerDm({ guildName: "Test Server", channelName: "alerts" }),
 		HELP,
 		DM_OPT_IN_PROMPT,
 		ANNUAL_REMINDER,
@@ -182,15 +180,6 @@ describe("user-facing strings", () => {
 		expect(MENTION_UNKNOWN).toContain("subscribe");
 		expect(MENTION_UNKNOWN).toContain("unsubscribe");
 		expect(MENTION_INSUFFICIENT_PRIVILEGES).toContain("ManageGuild");
-	});
-
-	it("owner-DM welcome names the server, the subscribed channel, and the uninstall path", () => {
-		const dm = guildWelcomeOwnerDm({ guildName: "GuruCaudio", channelName: "alerts" });
-		expect(dm).toContain('"GuruCaudio"');
-		expect(dm).toContain("#alerts");
-		expect(dm).toContain(SOURCE_URL);
-		expect(dm).toMatch(/Server Settings.*Integrations.*Remove/);
-		expect(dm).toContain("/unsubscribe");
 	});
 
 	it("annual reminder offers a way out", () => {

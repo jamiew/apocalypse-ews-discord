@@ -29,6 +29,7 @@ import {
 	GUILD_SUBSCRIBE_OK,
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
+	guildWelcomeOwnerDm,
 	HELP,
 	type LevelChange,
 	levelChangePayload,
@@ -261,9 +262,14 @@ export function createClient(deps: BotDeps): Client {
 		void notifyOperator(
 			client,
 			deps,
-			`INSTALL. Guild "${guild.name}" (id=${guild.id}, members=${guild.memberCount}) added the bot.`,
+			formatOperatorDm({
+				header: "INSTALL",
+				guildId: guild.id,
+				guildName: guild.name,
+				extras: [{ label: "members", value: String(guild.memberCount) }],
+			}),
 		);
-		void onGuildCreate(guild, deps).catch((err) =>
+		void onGuildCreate(guild, deps, client).catch((err) =>
 			log.error("guildCreate failed", { err, guildId: guild.id }),
 		);
 	});
@@ -309,7 +315,7 @@ export function createClient(deps: BotDeps): Client {
 	return client;
 }
 
-async function onGuildCreate(guild: Guild, deps: BotDeps): Promise<void> {
+async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promise<void> {
 	const me = guild.members.me;
 	if (!me) return;
 	const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
@@ -321,15 +327,65 @@ async function onGuildCreate(guild: Guild, deps: BotDeps): Promise<void> {
 	const sys = guild.systemChannel;
 	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
 	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
-	if (!picked) return;
-	const channel = guild.channels.cache.get(picked.id);
-	if (!isSendable(channel)) return;
-	await channel.send(GUILD_WELCOME);
-	deps.db.recordEvent({
-		kind: "guild_welcome_sent",
-		guildId: guild.id,
-		channelId: picked.id,
-	});
+
+	// DM the server owner regardless of whether we found a sendable welcome channel —
+	// owner DM is the reliable onboarding surface; the in-channel welcome may not land.
+	const owner = await guild.fetchOwner().catch(() => null);
+
+	if (picked) {
+		const channel = guild.channels.cache.get(picked.id);
+		if (isSendable(channel)) {
+			await channel.send(GUILD_WELCOME);
+			deps.db.recordEvent({
+				kind: "guild_welcome_sent",
+				guildId: guild.id,
+				channelId: picked.id,
+			});
+
+			// Auto-subscribe the welcome channel so the server gets alerts immediately
+			// without anyone having to run /subscribe.
+			const channelName = "name" in channel ? channel.name : "";
+			const result = deps.db.upsertSubscribed({
+				kind: "guild_channel",
+				discordId: picked.id,
+				guildId: guild.id,
+				now: new Date().toISOString(),
+			});
+			if (result.created || result.reactivated) {
+				announceSubscribe(client, deps, {
+					kind: "guild_channel",
+					via: "install",
+					guildId: guild.id,
+					channelId: picked.id,
+					guildName: guild.name,
+					channelName,
+					userId: owner?.id ?? guild.ownerId,
+					userTag: owner?.user.tag ?? "<server owner>",
+					reactivated: result.reactivated,
+				});
+			}
+
+			if (owner) {
+				try {
+					await owner.send(guildWelcomeOwnerDm({ guildName: guild.name, channelName }));
+					deps.db.recordEvent({
+						kind: "guild_owner_dm_sent",
+						guildId: guild.id,
+						userId: owner.id,
+						payload: { ownerId: owner.id },
+					});
+				} catch (err) {
+					log.warn("owner welcome DM failed", { err, guildId: guild.id, ownerId: owner.id });
+					deps.db.recordEvent({
+						kind: "guild_owner_dm_failed",
+						guildId: guild.id,
+						userId: owner.id,
+						payload: { ownerId: owner.id, err },
+					});
+				}
+			}
+		}
+	}
 }
 
 async function handleCommand(
@@ -388,6 +444,8 @@ async function cmdSubscribe(
 			via: "command",
 			guildId: interaction.guildId,
 			channelId: target.id,
+			guildName: interaction.guild?.name,
+			channelName: "name" in target ? (target.name ?? undefined) : undefined,
 			userId: interaction.user.id,
 			userTag: interaction.user.tag,
 			reactivated: result.reactivated,
@@ -427,11 +485,14 @@ async function cmdUnsubscribe(
 		if (!interaction.channelId) return;
 		const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
 		if (removed) {
+			const ch = interaction.channel;
 			announceUnsubscribe(client, deps, {
 				kind: "guild_channel",
 				via: "command",
 				guildId: interaction.guildId,
 				channelId: interaction.channelId,
+				guildName: interaction.guild?.name,
+				channelName: ch && "name" in ch ? (ch.name ?? undefined) : undefined,
 				userId: interaction.user.id,
 				userTag: interaction.user.tag,
 			});
@@ -642,6 +703,8 @@ async function handleMention(
 					via: "mention",
 					guildId,
 					channelId,
+					guildName: message.guild?.name,
+					channelName: mentionChannelName(message),
 					userId,
 					userTag: message.author.tag,
 					reactivated: result.reactivated,
@@ -657,6 +720,8 @@ async function handleMention(
 				via: "mention",
 				guildId,
 				channelId,
+				guildName: message.guild?.name,
+				channelName: mentionChannelName(message),
 				userId,
 				userTag: message.author.tag,
 			});
@@ -757,14 +822,47 @@ interface AnnounceArgs {
 	via: SubscribeVia;
 	guildId: Snowflake | null;
 	channelId: Snowflake | null;
+	guildName?: string | undefined;
+	channelName?: string | undefined;
 	userId: Snowflake;
 	userTag: string;
 }
 
-function formatTarget(args: AnnounceArgs): string {
-	return args.kind === "guild_channel"
-		? `guild_channel guild=${args.guildId} channel=${args.channelId}`
-		: `dm user=${args.userTag} (${args.userId})`;
+// Multi-line bullet format, readable in the operator's Discord DM client.
+// Names are best-effort — IDs are always present, names appear when known.
+export function formatOperatorDm(args: {
+	header: string;
+	guildId?: Snowflake | null | undefined;
+	guildName?: string | undefined;
+	channelId?: Snowflake | null | undefined;
+	channelName?: string | undefined;
+	userId?: Snowflake | undefined;
+	userTag?: string | undefined;
+	extras?: ReadonlyArray<{ label: string; value: string }>;
+}): string {
+	const lines = [args.header];
+	if (args.guildId) {
+		lines.push(`• guild: ${args.guildName ? `"${args.guildName}" ` : ""}(${args.guildId})`);
+	}
+	if (args.channelId) {
+		lines.push(`• channel: ${args.channelName ? `#${args.channelName} ` : ""}(${args.channelId})`);
+	}
+	if (args.userId) {
+		lines.push(`• user: ${args.userTag ? `${args.userTag} ` : ""}(${args.userId})`);
+	}
+	for (const e of args.extras ?? []) {
+		lines.push(`• ${e.label}: ${e.value}`);
+	}
+	return lines.join("\n");
+}
+
+function subscribeHeader(args: AnnounceArgs & { reactivated: boolean }): string {
+	const tail = args.reactivated ? " (reactivated)" : "";
+	return `SUBSCRIBE ${args.kind} via ${args.via}${tail}`;
+}
+
+function unsubscribeHeader(args: AnnounceArgs): string {
+	return `UNSUBSCRIBE ${args.kind} via ${args.via}`;
 }
 
 function announceSubscribe(
@@ -782,7 +880,15 @@ function announceSubscribe(
 	void notifyOperator(
 		client,
 		deps,
-		`SUBSCRIBE. ${formatTarget(args)} by user=${args.userTag} (${args.userId})${args.reactivated ? " (reactivated)" : ""} via=${args.via}`,
+		formatOperatorDm({
+			header: subscribeHeader(args),
+			guildId: args.guildId,
+			guildName: args.guildName,
+			channelId: args.channelId,
+			channelName: args.channelName,
+			userId: args.userId,
+			userTag: args.userTag,
+		}),
 	);
 }
 
@@ -797,8 +903,22 @@ function announceUnsubscribe(client: Client, deps: BotDeps, args: AnnounceArgs):
 	void notifyOperator(
 		client,
 		deps,
-		`UNSUBSCRIBE. ${formatTarget(args)} by user=${args.userTag} (${args.userId}) via=${args.via}`,
+		formatOperatorDm({
+			header: unsubscribeHeader(args),
+			guildId: args.guildId,
+			guildName: args.guildName,
+			channelId: args.channelId,
+			channelName: args.channelName,
+			userId: args.userId,
+			userTag: args.userTag,
+		}),
 	);
+}
+
+function mentionChannelName(message: Message): string | undefined {
+	const ch = message.channel;
+	if (ch && "name" in ch && typeof ch.name === "string") return ch.name;
+	return undefined;
 }
 
 function isSendable(channel: unknown): channel is TextBasedChannel & {

@@ -17,6 +17,8 @@ export type EventKind =
 	| "guild_create"
 	| "guild_delete"
 	| "guild_welcome_sent"
+	| "guild_owner_dm_sent"
+	| "guild_owner_dm_failed"
 	| "command"
 	| "subscribe"
 	| "unsubscribe"
@@ -42,7 +44,7 @@ export interface EventRecord {
 	payload: string | null;
 }
 
-export type SubscribeVia = "command" | "dm" | "mention";
+export type SubscribeVia = "command" | "dm" | "mention" | "install";
 export type DmIntent = "subscribe" | "unsubscribe" | "status" | "help" | "other";
 export type MentionIntent = DmIntent;
 
@@ -67,6 +69,8 @@ export interface EventPayloadByKind {
 	guild_create: { name: string; memberCount: number };
 	guild_delete: { name: string };
 	guild_welcome_sent: undefined;
+	guild_owner_dm_sent: { ownerId: Snowflake };
+	guild_owner_dm_failed: { ownerId: Snowflake; err: unknown };
 	command: { name: string; options: ReadonlyArray<{ name: string; value: unknown }> };
 	subscribe: { kind: SubscriberKind; via: SubscribeVia; reactivated: boolean };
 	unsubscribe: { kind: SubscriberKind; via: SubscribeVia };

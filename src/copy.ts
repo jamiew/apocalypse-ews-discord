@@ -14,6 +14,24 @@ export const GUILD_WELCOME = [
 	"Standing by.",
 ].join("\n");
 
+// DM'd to the server owner on install. Mirrors GUILD_WELCOME but names the
+// server + welcome channel and notes that the channel is auto-subscribed.
+export function guildWelcomeOwnerDm(args: { guildName: string; channelName: string }): string {
+	return [
+		"APOCALYPSE EWS ONLINE.",
+		"",
+		`Added to "${args.guildName}". The channel #${args.channelName} is now subscribed to level 5 alerts.`,
+		"",
+		`Tracked-aircraft anomaly monitoring. Source: ${SOURCE_URL}`,
+		"Emergency level 5 → posted to that channel. Otherwise silent.",
+		"",
+		"`/subscribe [#channel]` to move alerts. `/unsubscribe` to stand down.",
+		"Uninstall: Server Settings → Integrations → Apocalypse EWS → Remove.",
+		"",
+		"Standing by.",
+	].join("\n");
+}
+
 export const GUILD_SUBSCRIBE_OK =
 	"SUBSCRIBED. This channel receives level 5 alerts. `/unsubscribe` to stand down.";
 

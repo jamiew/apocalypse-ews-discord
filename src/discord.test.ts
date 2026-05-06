@@ -9,6 +9,7 @@ import {
 	classifyDmText,
 	classifyMentionText,
 	commandDefinitions,
+	formatOperatorDm,
 	pickWelcomeChannelFrom,
 	stripMention,
 	type WelcomeChannelCandidate,
@@ -119,6 +120,71 @@ describe("pickWelcomeChannelFrom", () => {
 	it("returns null when nothing is sendable", () => {
 		const channels = [text({ id: "x", canSend: false })];
 		expect(pickWelcomeChannelFrom(null, channels)).toBeNull();
+	});
+});
+
+describe("formatOperatorDm", () => {
+	it("renders subscribe with names and IDs as bullets", () => {
+		expect(
+			formatOperatorDm({
+				header: "SUBSCRIBE guild_channel via command",
+				guildId: "161104042146267136",
+				guildName: "GuruCaudio",
+				channelId: "1501353142863003708",
+				channelName: "alerts",
+				userId: "160928089549832192",
+				userTag: "blazer0d",
+			}),
+		).toBe(
+			[
+				"SUBSCRIBE guild_channel via command",
+				'• guild: "GuruCaudio" (161104042146267136)',
+				"• channel: #alerts (1501353142863003708)",
+				"• user: blazer0d (160928089549832192)",
+			].join("\n"),
+		);
+	});
+
+	it("falls back to ID-only when names are missing", () => {
+		expect(
+			formatOperatorDm({
+				header: "SUBSCRIBE guild_channel via command",
+				guildId: "1",
+				channelId: "2",
+				userId: "3",
+				userTag: "u",
+			}),
+		).toBe(
+			[
+				"SUBSCRIBE guild_channel via command",
+				"• guild: (1)",
+				"• channel: (2)",
+				"• user: u (3)",
+			].join("\n"),
+		);
+	});
+
+	it("renders dm subscribe with only the user bullet", () => {
+		expect(
+			formatOperatorDm({
+				header: "SUBSCRIBE dm via dm",
+				guildId: null,
+				channelId: null,
+				userId: "3",
+				userTag: "u",
+			}),
+		).toBe(["SUBSCRIBE dm via dm", "• user: u (3)"].join("\n"));
+	});
+
+	it("renders INSTALL with extras", () => {
+		expect(
+			formatOperatorDm({
+				header: "INSTALL",
+				guildId: "1141722997384814692",
+				guildName: "Seatoncode",
+				extras: [{ label: "members", value: "5" }],
+			}),
+		).toBe(["INSTALL", '• guild: "Seatoncode" (1141722997384814692)', "• members: 5"].join("\n"));
 	});
 });
 

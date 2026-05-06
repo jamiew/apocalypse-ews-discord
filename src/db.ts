@@ -64,8 +64,28 @@ type AlertDispatchFailPayload = AlertDispatchOkPayload & { err: unknown };
 export interface EventPayloadByKind {
 	startup: { rss: string; dashboard?: string };
 	shutdown: { signal: string };
-	guild_create: { name: string; memberCount: number };
-	guild_delete: { name: string };
+	guild_create: {
+		name: string;
+		memberCount: number;
+		ownerId: Snowflake;
+		ownerTag: string | null;
+		channelCount: number;
+		preferredLocale: string | null;
+		guildCreatedAt: string | null;
+		botJoinedAt: string | null;
+		installedById: Snowflake | null;
+		installedByTag: string | null;
+		features: readonly string[];
+		large: boolean;
+		premiumTier: number;
+		description: string | null;
+	};
+	guild_delete: {
+		name: string;
+		memberCount: number | null;
+		botJoinedAt: string | null;
+		tenureMs: number | null;
+	};
 	guild_welcome_sent: undefined;
 	command: { name: string; options: ReadonlyArray<{ name: string; value: unknown }> };
 	subscribe: { kind: SubscriberKind; via: SubscribeVia; reactivated: boolean };

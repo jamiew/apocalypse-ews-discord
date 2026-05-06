@@ -1,5 +1,6 @@
 import {
 	ApplicationIntegrationType,
+	AuditLogEvent,
 	ChannelType,
 	type ChatInputCommandInteraction,
 	Client,
@@ -253,32 +254,36 @@ export function createClient(deps: BotDeps): Client {
 	});
 
 	client.on(Events.GuildCreate, (guild) => {
-		deps.db.recordEvent({
-			kind: "guild_create",
-			guildId: guild.id,
-			payload: { name: guild.name, memberCount: guild.memberCount },
-		});
-		void notifyOperator(
-			client,
-			deps,
-			formatOperatorDm({
-				header: "INSTALL",
-				guildId: guild.id,
-				guildName: guild.name,
-				extras: [{ label: "members", value: String(guild.memberCount) }],
-			}),
-		);
 		void onGuildCreate(guild, deps, client).catch((err) =>
 			log.error("guildCreate failed", { err, guildId: guild.id }),
 		);
 	});
 
 	client.on(Events.GuildDelete, (guild) => {
-		deps.db.recordEvent({
-			kind: "guild_delete",
-			guildId: guild.id,
-			payload: { name: guild.name },
-		});
+		const botJoinedAt = guild.joinedAt?.toISOString() ?? null;
+		const tenureMs = guild.joinedAt ? Date.now() - guild.joinedAt.getTime() : null;
+		const payload = {
+			name: guild.name,
+			memberCount: guild.memberCount ?? null,
+			botJoinedAt,
+			tenureMs,
+		};
+		deps.db.recordEvent({ kind: "guild_delete", guildId: guild.id, payload });
+		log.info("guild remove", { guildId: guild.id, ...payload });
+		void notifyOperator(
+			client,
+			deps,
+			formatOperatorDm({
+				header: "REMOVE",
+				guildId: guild.id,
+				guildName: guild.name,
+				extras: [
+					{ label: "members", value: String(guild.memberCount ?? "?") },
+					{ label: "joined", value: botJoinedAt ?? "?" },
+					{ label: "tenure", value: tenureMs ? formatDuration(tenureMs) : "?" },
+				],
+			}),
+		);
 	});
 
 	client.on(Events.InteractionCreate, (interaction) => {
@@ -314,9 +319,91 @@ export function createClient(deps: BotDeps): Client {
 	return client;
 }
 
+function formatDuration(ms: number): string {
+	const sec = Math.floor(ms / 1000);
+	const day = Math.floor(sec / 86_400);
+	const hr = Math.floor((sec % 86_400) / 3600);
+	const min = Math.floor((sec % 3600) / 60);
+	if (day > 0) return `${day}d${hr}h`;
+	if (hr > 0) return `${hr}h${min}m`;
+	return `${min}m`;
+}
+
+async function fetchInstaller(
+	guild: Guild,
+	botUserId: Snowflake | undefined,
+): Promise<{ id: Snowflake; tag: string | null } | null> {
+	if (!botUserId) return null;
+	try {
+		const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.BotAdd, limit: 10 });
+		const entry = logs.entries.find((e) => e.target?.id === botUserId);
+		if (!entry?.executor) return null;
+		return { id: entry.executor.id, tag: entry.executor.tag ?? null };
+	} catch {
+		// ViewAuditLog perm not granted, or transient — best-effort.
+		return null;
+	}
+}
+
 async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promise<void> {
 	const me = guild.members.me;
 	if (!me) return;
+
+	const [owner, installer] = await Promise.all([
+		guild.fetchOwner().catch(() => null),
+		fetchInstaller(guild, client.user?.id),
+	]);
+
+	const botJoinedAt = guild.joinedAt?.toISOString() ?? null;
+	const guildCreatedAt = guild.createdAt?.toISOString() ?? null;
+	const info: EventPayloadByKind["guild_create"] = {
+		name: guild.name,
+		memberCount: guild.memberCount,
+		ownerId: owner?.id ?? guild.ownerId,
+		ownerTag: owner?.user.tag ?? null,
+		channelCount: guild.channels.cache.size,
+		preferredLocale: guild.preferredLocale ?? null,
+		guildCreatedAt,
+		botJoinedAt,
+		installedById: installer?.id ?? null,
+		installedByTag: installer?.tag ?? null,
+		features: [...guild.features],
+		large: guild.large,
+		premiumTier: guild.premiumTier,
+		description: guild.description ?? null,
+	};
+
+	deps.db.recordEvent({ kind: "guild_create", guildId: guild.id, payload: info });
+	log.info("guild install", { guildId: guild.id, ...info });
+
+	void notifyOperator(
+		client,
+		deps,
+		formatOperatorDm({
+			header: "INSTALL",
+			guildId: guild.id,
+			guildName: guild.name,
+			extras: [
+				{
+					label: "owner",
+					value: `${info.ownerTag ?? "<unknown>"} (${info.ownerId})`,
+				},
+				{
+					label: "installed by",
+					value: info.installedById
+						? `${info.installedByTag ?? "<unknown>"} (${info.installedById})`
+						: "<audit log unavailable>",
+				},
+				{ label: "members", value: String(info.memberCount) },
+				{ label: "channels", value: String(info.channelCount) },
+				{ label: "locale", value: info.preferredLocale ?? "?" },
+				{ label: "premium tier", value: String(info.premiumTier) },
+				{ label: "guild created", value: info.guildCreatedAt ?? "?" },
+				{ label: "features", value: info.features.length ? info.features.join(",") : "—" },
+			],
+		}),
+	);
+
 	const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
 		id: c.id,
 		type: c.type,
@@ -326,9 +413,6 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	const sys = guild.systemChannel;
 	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
 	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
-
-	// Used for the install-time announceSubscribe operator DM.
-	const owner = await guild.fetchOwner().catch(() => null);
 
 	if (picked) {
 		const channel = guild.channels.cache.get(picked.id);

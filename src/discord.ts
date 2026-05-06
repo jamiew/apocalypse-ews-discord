@@ -29,7 +29,6 @@ import {
 	GUILD_SUBSCRIBE_OK,
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
-	guildWelcomeOwnerDm,
 	HELP,
 	type LevelChange,
 	levelChangePayload,
@@ -328,8 +327,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
 	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
 
-	// DM the server owner regardless of whether we found a sendable welcome channel —
-	// owner DM is the reliable onboarding surface; the in-channel welcome may not land.
+	// Used for the install-time announceSubscribe operator DM.
 	const owner = await guild.fetchOwner().catch(() => null);
 
 	if (picked) {
@@ -363,26 +361,6 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 					userTag: owner?.user.tag ?? "<server owner>",
 					reactivated: result.reactivated,
 				});
-			}
-
-			if (owner) {
-				try {
-					await owner.send(guildWelcomeOwnerDm({ guildName: guild.name, channelName }));
-					deps.db.recordEvent({
-						kind: "guild_owner_dm_sent",
-						guildId: guild.id,
-						userId: owner.id,
-						payload: { ownerId: owner.id },
-					});
-				} catch (err) {
-					log.warn("owner welcome DM failed", { err, guildId: guild.id, ownerId: owner.id });
-					deps.db.recordEvent({
-						kind: "guild_owner_dm_failed",
-						guildId: guild.id,
-						userId: owner.id,
-						payload: { ownerId: owner.id, err },
-					});
-				}
 			}
 		}
 	}

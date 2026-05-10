@@ -49,6 +49,15 @@ export const DM_UNSUBSCRIBE_OK =
 
 export const DM_NOT_SUBSCRIBED = "Not subscribed.";
 
+export function heartbeatPayload(currentLevel: number | null): string {
+	return [
+		"STANDING BY.",
+		"Apocalypse EWS operational. Tracked-aircraft anomaly monitoring nominal.",
+		`Current level: ${formatLevel(currentLevel)}. Nothing to report.`,
+		`<${SOURCE_URL}>`,
+	].join("\n");
+}
+
 export const ANNUAL_REMINDER =
 	"One year on. You are still subscribed to the Apocalypse EWS. Nothing has ended. Go outside. Reply `unsubscribe` to stop these.";
 

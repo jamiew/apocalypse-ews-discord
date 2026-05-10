@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { DB } from "./db.js";
 import { createClient, fanOutAlert, fanOutLevelChange } from "./discord.js";
 import { loadEnv } from "./env.js";
+import { sendHeartbeat } from "./heartbeat.js";
 import { pollLevelOnce } from "./level-poller.js";
 import { childLogger } from "./log.js";
 import { pollOnce } from "./poller.js";
@@ -78,12 +79,27 @@ async function main() {
 		}
 	});
 
+	const heartbeatLog = childLogger("heartbeat");
+	const heartbeatTask = cron.schedule(env.HEARTBEAT_CRON, async () => {
+		try {
+			const result = await sendHeartbeat({ db, client });
+			if (result.fired) {
+				heartbeatLog.info("heartbeat dispatched", { sent: result.sent, failed: result.failed });
+			} else {
+				heartbeatLog.info("heartbeat skipped", { reason: result.reason });
+			}
+		} catch (err) {
+			heartbeatLog.error("heartbeat error", { err });
+		}
+	});
+
 	const shutdown = async (signal: string) => {
 		log.info("shutting down", { signal });
 		db.recordEvent({ kind: "shutdown", payload: { signal } });
 		pollTask.stop();
 		levelTask.stop();
 		reminderTask.stop();
+		heartbeatTask.stop();
 		await client.destroy().catch(() => {});
 		db.close();
 		process.exit(0);

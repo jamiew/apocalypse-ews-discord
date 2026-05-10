@@ -175,7 +175,6 @@ const ALL_CONTEXTS: InteractionContextType[] = [
 	InteractionContextType.BotDM,
 	InteractionContextType.PrivateChannel,
 ];
-const GUILD_ONLY: InteractionContextType[] = [InteractionContextType.Guild];
 const ALL_INSTALLS: ApplicationIntegrationType[] = [
 	ApplicationIntegrationType.GuildInstall,
 	ApplicationIntegrationType.UserInstall,
@@ -211,12 +210,6 @@ export const commandDefinitions = [
 		.setDescription("How to use the Apocalypse EWS bot.")
 		.setIntegrationTypes(ALL_INSTALLS)
 		.setContexts(ALL_CONTEXTS),
-	new SlashCommandBuilder()
-		.setName("dev-fire")
-		.setDescription("Admin only — synthesize an alert event for testing.")
-		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-		.setIntegrationTypes(ALL_INSTALLS)
-		.setContexts(GUILD_ONLY),
 ].map((c) => c.toJSON());
 
 // Guild-scoped registration is instant; global takes ~1h to propagate.
@@ -540,8 +533,6 @@ async function handleCommand(
 		case "help":
 			await interaction.reply({ content: HELP, flags: MessageFlags.Ephemeral });
 			return;
-		case "dev-fire":
-			return cmdDevFire(interaction, deps, client);
 	}
 }
 
@@ -665,24 +656,6 @@ async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps
 			currentLevel: deps.db.getLevelState().emergency_level,
 		}),
 		flags: MessageFlags.Ephemeral,
-	});
-}
-
-async function cmdDevFire(
-	interaction: ChatInputCommandInteraction,
-	deps: BotDeps,
-	client: Client,
-): Promise<void> {
-	if (!deps.devAdminUserId || interaction.user.id !== deps.devAdminUserId) {
-		await interaction.reply({ content: "Not authorized.", flags: MessageFlags.Ephemeral });
-		return;
-	}
-	await interaction.reply({ content: "Firing test alert.", flags: MessageFlags.Ephemeral });
-	await fanOutAlert(client, deps, {
-		guid: `dev-fire-${Date.now()}`,
-		title: "Test alert (dev-fire).",
-		link: "https://ews.kylemcdonald.net/",
-		pubDate: new Date().toUTCString(),
 	});
 }
 

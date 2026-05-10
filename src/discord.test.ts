@@ -192,10 +192,10 @@ describe("formatOperatorDm", () => {
 describe("commandDefinitions", () => {
 	it("registers exactly the expected slash commands", () => {
 		const names = commandDefinitions.map((c) => c.name).sort();
-		expect(names).toEqual(["dev-fire", "help", "status", "subscribe", "unsubscribe"]);
+		expect(names).toEqual(["help", "status", "subscribe", "unsubscribe"]);
 	});
 
-	it("supports both guild + user installs and runs in every context (except dev-fire which is guild-only)", () => {
+	it("supports both guild + user installs and runs in every context", () => {
 		const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
 		const allCtx = [
 			InteractionContextType.Guild,
@@ -206,8 +206,6 @@ describe("commandDefinitions", () => {
 		expect(byName["unsubscribe"]?.contexts).toEqual(allCtx);
 		expect(byName["status"]?.contexts).toEqual(allCtx);
 		expect(byName["help"]?.contexts).toEqual(allCtx);
-		// dev-fire stays guild-only — admin testing happens in a server.
-		expect(byName["dev-fire"]?.contexts).toEqual([InteractionContextType.Guild]);
 		// Every command supports both install types.
 		const both = [ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall];
 		for (const c of commandDefinitions) {
@@ -215,16 +213,13 @@ describe("commandDefinitions", () => {
 		}
 	});
 
-	it("gates subscribe/unsubscribe behind ManageGuild and dev-fire behind Administrator", () => {
+	it("gates subscribe/unsubscribe behind ManageGuild", () => {
 		const byName = Object.fromEntries(commandDefinitions.map((c) => [c.name, c]));
 		expect(byName["subscribe"]?.default_member_permissions).toBe(
 			String(PermissionFlagsBits.ManageGuild),
 		);
 		expect(byName["unsubscribe"]?.default_member_permissions).toBe(
 			String(PermissionFlagsBits.ManageGuild),
-		);
-		expect(byName["dev-fire"]?.default_member_permissions).toBe(
-			String(PermissionFlagsBits.Administrator),
 		);
 		// status and help carry no permission gate.
 		expect(byName["status"]?.default_member_permissions).toBeUndefined();

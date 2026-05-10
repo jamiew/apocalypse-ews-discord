@@ -10,6 +10,7 @@
 
 - `guildCreate` now distinguishes _no postable channel_, `DiscordAPIError[50001]` Missing Access, and other failures, recording a `guild_welcome_failed` event for each and DMing the operator. Previously a single catch-all log line.
 - Replaced the deprecated `ephemeral: true` with `flags: MessageFlags.Ephemeral` (7 sites) so docker logs stop emitting a stack trace on every interaction.
+- Removed the `/dev-fire` test command. Re-register globally to drop it from the live command list.
 
 ### Observability
 

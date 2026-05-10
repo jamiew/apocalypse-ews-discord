@@ -8,6 +8,7 @@ import {
 import {
 	classifyDmText,
 	classifyMentionText,
+	classifyWelcomeError,
 	commandDefinitions,
 	formatOperatorDm,
 	pickWelcomeChannelFrom,
@@ -228,5 +229,18 @@ describe("commandDefinitions", () => {
 		// status and help carry no permission gate.
 		expect(byName["status"]?.default_member_permissions).toBeUndefined();
 		expect(byName["help"]?.default_member_permissions).toBeUndefined();
+	});
+});
+
+describe("classifyWelcomeError", () => {
+	it("classifies DiscordAPIError code 50001 as missing_access", () => {
+		expect(classifyWelcomeError({ code: 50001, message: "Missing Access" })).toBe("missing_access");
+	});
+
+	it("classifies other errors as other", () => {
+		expect(classifyWelcomeError(new Error("boom"))).toBe("other");
+		expect(classifyWelcomeError({ code: 50013 })).toBe("other");
+		expect(classifyWelcomeError(null)).toBe("other");
+		expect(classifyWelcomeError(undefined)).toBe("other");
 	});
 });

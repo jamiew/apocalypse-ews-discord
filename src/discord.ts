@@ -9,6 +9,7 @@ import {
 	type Guild,
 	InteractionContextType,
 	type Message,
+	MessageFlags,
 	Partials,
 	PermissionFlagsBits,
 	REST,
@@ -414,40 +415,95 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
 	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
 
-	if (picked) {
-		const channel = guild.channels.cache.get(picked.id);
-		if (isSendable(channel)) {
-			await channel.send(GUILD_WELCOME);
-			deps.db.recordEvent({
-				kind: "guild_welcome_sent",
+	const channel = picked ? guild.channels.cache.get(picked.id) : undefined;
+	if (!picked || !isSendable(channel)) {
+		recordWelcomeFailure(deps, guild.id, "no_channel");
+		void notifyOperator(
+			client,
+			deps,
+			formatOperatorDm({
+				header: "WELCOME UNDELIVERED",
 				guildId: guild.id,
-				channelId: picked.id,
-			});
-
-			// Auto-subscribe the welcome channel so the server gets alerts immediately
-			// without anyone having to run /subscribe.
-			const channelName = "name" in channel ? channel.name : "";
-			const result = deps.db.upsertSubscribed({
-				kind: "guild_channel",
-				discordId: picked.id,
-				guildId: guild.id,
-				now: new Date().toISOString(),
-			});
-			if (result.created || result.reactivated) {
-				announceSubscribe(client, deps, {
-					kind: "guild_channel",
-					via: "install",
-					guildId: guild.id,
-					channelId: picked.id,
-					guildName: guild.name,
-					channelName,
-					userId: owner?.id ?? guild.ownerId,
-					userTag: owner?.user.tag ?? "<server owner>",
-					reactivated: result.reactivated,
-				});
-			}
-		}
+				guildName: guild.name,
+				extras: [{ label: "reason", value: "no postable channel" }],
+			}),
+		);
+		return;
 	}
+
+	try {
+		await channel.send(GUILD_WELCOME);
+	} catch (err) {
+		const reason = classifyWelcomeError(err);
+		recordWelcomeFailure(deps, guild.id, reason, err);
+		log.warn("welcome send failed", { guildId: guild.id, reason, err });
+		void notifyOperator(
+			client,
+			deps,
+			formatOperatorDm({
+				header: "WELCOME UNDELIVERED",
+				guildId: guild.id,
+				guildName: guild.name,
+				channelId: picked.id,
+				extras: [{ label: "reason", value: reason }],
+			}),
+		);
+		return;
+	}
+
+	deps.db.recordEvent({
+		kind: "guild_welcome_sent",
+		guildId: guild.id,
+		channelId: picked.id,
+	});
+
+	// Auto-subscribe the welcome channel so the server gets alerts immediately
+	// without anyone having to run /subscribe.
+	const channelName = "name" in channel ? channel.name : "";
+	const result = deps.db.upsertSubscribed({
+		kind: "guild_channel",
+		discordId: picked.id,
+		guildId: guild.id,
+		now: new Date().toISOString(),
+	});
+	if (result.created || result.reactivated) {
+		announceSubscribe(client, deps, {
+			kind: "guild_channel",
+			via: "install",
+			guildId: guild.id,
+			channelId: picked.id,
+			guildName: guild.name,
+			channelName,
+			userId: owner?.id ?? guild.ownerId,
+			userTag: owner?.user.tag ?? "<server owner>",
+			reactivated: result.reactivated,
+		});
+	}
+}
+
+export function classifyWelcomeError(err: unknown): "missing_access" | "other" {
+	if (
+		err != null &&
+		typeof err === "object" &&
+		"code" in err &&
+		(err as { code?: unknown }).code === 50001
+	) {
+		return "missing_access";
+	}
+	return "other";
+}
+
+function recordWelcomeFailure(
+	deps: BotDeps,
+	guildId: Snowflake,
+	reason: "no_channel" | "missing_access" | "other",
+	err?: unknown,
+): void {
+	deps.db.recordEvent({
+		kind: "guild_welcome_failed",
+		guildId,
+		payload: err === undefined ? { reason } : { reason, err },
+	});
 }
 
 async function handleCommand(
@@ -465,6 +521,15 @@ async function handleCommand(
 			options: interaction.options.data.map((o) => ({ name: o.name, value: o.value })),
 		},
 	});
+	log.info("slash command", {
+		name: interaction.commandName,
+		scope: interaction.guildId ? "guild" : "dm",
+		guildId: interaction.guildId,
+		guildName: interaction.guild?.name,
+		channelId: interaction.channelId,
+		userId: interaction.user.id,
+		userTag: interaction.user.tag,
+	});
 	switch (interaction.commandName) {
 		case "subscribe":
 			return cmdSubscribe(interaction, deps, client);
@@ -473,7 +538,7 @@ async function handleCommand(
 		case "status":
 			return cmdStatus(interaction, deps);
 		case "help":
-			await interaction.reply({ content: HELP, ephemeral: true });
+			await interaction.reply({ content: HELP, flags: MessageFlags.Ephemeral });
 			return;
 		case "dev-fire":
 			return cmdDevFire(interaction, deps, client);
@@ -488,7 +553,10 @@ async function cmdSubscribe(
 	if (interaction.guildId) {
 		const target = interaction.options.getChannel("channel") ?? interaction.channel;
 		if (!target || !("id" in target)) {
-			await interaction.reply({ content: "Could not resolve a channel.", ephemeral: true });
+			await interaction.reply({
+				content: "Could not resolve a channel.",
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 		const result = deps.db.upsertSubscribed({
@@ -498,7 +566,10 @@ async function cmdSubscribe(
 			now: new Date().toISOString(),
 		});
 		if (!result.created && !result.reactivated) {
-			await interaction.reply({ content: GUILD_ALREADY_SUBSCRIBED, ephemeral: true });
+			await interaction.reply({
+				content: GUILD_ALREADY_SUBSCRIBED,
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 		announceSubscribe(client, deps, {
@@ -561,7 +632,7 @@ async function cmdUnsubscribe(
 		}
 		await interaction.reply({
 			content: removed ? GUILD_UNSUBSCRIBE_OK : GUILD_NOT_SUBSCRIBED,
-			ephemeral: !removed,
+			...(removed ? {} : { flags: MessageFlags.Ephemeral }),
 		});
 		return;
 	}
@@ -593,7 +664,7 @@ async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps
 			lastAlert: deps.db.lastAlertForDisplay(),
 			currentLevel: deps.db.getLevelState().emergency_level,
 		}),
-		ephemeral: true,
+		flags: MessageFlags.Ephemeral,
 	});
 }
 
@@ -603,10 +674,10 @@ async function cmdDevFire(
 	client: Client,
 ): Promise<void> {
 	if (!deps.devAdminUserId || interaction.user.id !== deps.devAdminUserId) {
-		await interaction.reply({ content: "Not authorized.", ephemeral: true });
+		await interaction.reply({ content: "Not authorized.", flags: MessageFlags.Ephemeral });
 		return;
 	}
-	await interaction.reply({ content: "Firing test alert.", ephemeral: true });
+	await interaction.reply({ content: "Firing test alert.", flags: MessageFlags.Ephemeral });
 	await fanOutAlert(client, deps, {
 		guid: `dev-fire-${Date.now()}`,
 		title: "Test alert (dev-fire).",
@@ -624,10 +695,17 @@ async function handleDM(message: Message, deps: BotDeps, client: Client): Promis
 		userId,
 		payload: { content: message.content, intent },
 	});
+	log.info("dm in", {
+		userId,
+		userTag: message.author.tag,
+		intent,
+		content: message.content,
+	});
 
 	const reply = async (content: string) => {
 		await message.reply(content);
 		deps.db.recordEvent({ kind: "dm_out", userId, payload: { content } });
+		log.info("dm out", { userId, userTag: message.author.tag, content });
 	};
 
 	if (intent === "subscribe") {
@@ -721,10 +799,21 @@ async function handleMention(
 		userId,
 		payload: { content: message.content, stripped, intent },
 	});
+	log.info("mention in", {
+		guildId,
+		guildName: message.guild?.name,
+		channelId,
+		channelName: mentionChannelName(message),
+		userId,
+		userTag: message.author.tag,
+		intent,
+		stripped,
+	});
 
 	const reply = async (content: string) => {
 		await message.reply(content);
 		deps.db.recordEvent({ kind: "mention_out", guildId, channelId, userId, payload: { content } });
+		log.info("mention out", { guildId, channelId, userId, content });
 	};
 
 	if (intent === "help") {
@@ -874,6 +963,7 @@ async function notifyOperator(client: Client, deps: BotDeps, content: string): P
 	try {
 		const user = await client.users.fetch(id);
 		await user.send(content);
+		log.info("operator dm sent", { operatorId: id, header: content.split("\n")[0] });
 	} catch (err) {
 		log.warn("operator notify failed", { err, operatorId: id });
 	}
@@ -939,6 +1029,17 @@ function announceSubscribe(
 		userId: args.userId,
 		payload: { kind: args.kind, via: args.via, reactivated: args.reactivated },
 	});
+	log.info("subscribe", {
+		kind: args.kind,
+		via: args.via,
+		reactivated: args.reactivated,
+		guildId: args.guildId,
+		guildName: args.guildName,
+		channelId: args.channelId,
+		channelName: args.channelName,
+		userId: args.userId,
+		userTag: args.userTag,
+	});
 	void notifyOperator(
 		client,
 		deps,
@@ -961,6 +1062,16 @@ function announceUnsubscribe(client: Client, deps: BotDeps, args: AnnounceArgs):
 		channelId: args.channelId,
 		userId: args.userId,
 		payload: { kind: args.kind, via: args.via },
+	});
+	log.info("unsubscribe", {
+		kind: args.kind,
+		via: args.via,
+		guildId: args.guildId,
+		guildName: args.guildName,
+		channelId: args.channelId,
+		channelName: args.channelName,
+		userId: args.userId,
+		userTag: args.userTag,
 	});
 	void notifyOperator(
 		client,

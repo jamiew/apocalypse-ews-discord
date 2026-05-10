@@ -3,6 +3,9 @@ import RSSParser from "rss-parser";
 import { z } from "zod";
 import type { AlertItem } from "./copy.js";
 import type { DB } from "./db.js";
+import { childLogger } from "./log.js";
+
+const log = childLogger("poller");
 
 export interface NewAlert extends AlertItem {
 	guid: string;
@@ -65,6 +68,11 @@ export async function pollOnce(args: {
 		args.db.recordEvent({
 			kind: "alert_seen",
 			payload: { guid: item.guid, title: item.title, link: item.link, pubDate: item.pubDate },
+		});
+		log.info("alert seen", {
+			guid: item.guid,
+			title: item.title,
+			pubDate: item.pubDate,
 		});
 		fresh.push(item);
 		await args.onNewAlert(item);

@@ -30,6 +30,10 @@ export type EventKind =
 	| "level_change"
 	| "reminder_ok"
 	| "reminder_fail"
+	| "heartbeat_ok"
+	| "heartbeat_fail"
+	| "heartbeat_skipped"
+	| "guild_welcome_failed"
 	| "error";
 
 export interface EventRecord {
@@ -112,6 +116,13 @@ export interface EventPayloadByKind {
 	};
 	reminder_ok: { kind: SubscriberKind; subscribedAt: string };
 	reminder_fail: { kind: SubscriberKind; err: unknown };
+	heartbeat_ok: { kind: SubscriberKind; level: number | null };
+	heartbeat_fail: { kind: SubscriberKind; level: number | null; err: unknown };
+	heartbeat_skipped: { reason: "not_due" | "recent_level_change"; nextDelayMs?: number };
+	guild_welcome_failed: {
+		reason: "no_channel" | "missing_access" | "other";
+		err?: unknown;
+	};
 	error: { op: string; command?: string; err: unknown };
 }
 
@@ -379,6 +390,16 @@ export class DB {
 			.query<{ n: number }, [EventKind]>(`SELECT COUNT(*) AS n FROM events WHERE kind = ?`)
 			.get(kind);
 		return row?.n ?? 0;
+	}
+
+	/** Latest ts for a given event kind, or null if none recorded. */
+	lastEventTs(kind: EventKind): string | null {
+		const row = this.db
+			.query<{ ts: string }, [EventKind]>(
+				`SELECT ts FROM events WHERE kind = ? ORDER BY id DESC LIMIT 1`,
+			)
+			.get(kind);
+		return row?.ts ?? null;
 	}
 
 	close(): void {

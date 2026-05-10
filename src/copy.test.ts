@@ -5,6 +5,7 @@ import {
 	DM_OPT_IN_PROMPT,
 	GUILD_WELCOME,
 	HELP,
+	heartbeatPayload,
 	type LevelChange,
 	levelChangePayload,
 	MENTION_INSUFFICIENT_PRIVILEGES,
@@ -151,6 +152,8 @@ describe("user-facing strings", () => {
 		MENTION_UNKNOWN,
 		MENTION_INSUFFICIENT_PRIVILEGES,
 		alertPayload({ title: "x", link: "y", pubDate: "z" }),
+		heartbeatPayload(2),
+		heartbeatPayload(null),
 	].join("\n\n");
 
 	it("contains no exclamation points", () => {
@@ -184,5 +187,19 @@ describe("user-facing strings", () => {
 
 	it("annual reminder offers a way out", () => {
 		expect(ANNUAL_REMINDER.toLowerCase()).toContain("unsubscribe");
+	});
+});
+
+describe("heartbeatPayload", () => {
+	it("includes the current level and source URL", () => {
+		const out = heartbeatPayload(2);
+		expect(out).toContain("STANDING BY.");
+		expect(out).toContain("Current level: 2");
+		expect(out).toContain("Nothing to report.");
+		expect(out).toContain(`<${SOURCE_URL}>`);
+	});
+
+	it("renders unknown when level is null", () => {
+		expect(heartbeatPayload(null)).toContain("Current level: unknown");
 	});
 });

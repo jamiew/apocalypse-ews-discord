@@ -15,6 +15,7 @@ const schema = z.object({
 		.default("https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json"),
 	POLL_CRON: z.string().default("*/30 * * * *"),
 	REMINDER_CRON: z.string().default("0 13 * * *"),
+	HEARTBEAT_CRON: z.string().default("0 14 * * *"),
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
 	// Empty string disables file output.

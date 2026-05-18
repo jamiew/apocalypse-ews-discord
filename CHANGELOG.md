@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-18
+
+- `scripts/sync-from-prod.sh` — pull prod sqlite db + log to a local dir for analysis. Uses `VACUUM INTO` inside the bot container for a WAL-safe atomic snapshot; reuses `.deploy.env`; default dest `./data-prod/` (matches new `data-*/` gitignore rule).
+
 ## 2026-05-09
 
 ### Features

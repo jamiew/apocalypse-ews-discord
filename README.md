@@ -120,6 +120,22 @@ Stream the bot afterwards:
 ssh $DEPLOY_USER@$DEPLOY_HOST "cd $DEPLOY_PATH && docker compose logs -f bot"
 ```
 
+## // SYNC
+
+Pull prod state (db + log) to your laptop for analysis or backup. Safe while the bot is running — the db is snapshotted via `VACUUM INTO` inside the container before transfer, so the WAL stays consistent.
+
+```bash
+./scripts/sync-from-prod.sh            # → ./data-prod/
+./scripts/sync-from-prod.sh ./snap-1   # custom dest
+```
+
+Uses the same `.deploy.env` as `deploy.sh`. The default destination matches the `data-*/` gitignore rule so synced data can't accidentally land in a commit. Inspect with:
+
+```bash
+sqlite3 data-prod/ews.db 'SELECT kind, count(*) FROM events GROUP BY kind ORDER BY 2 DESC;'
+tail -f data-prod/ews.log | jq .
+```
+
 ## // CREDITS
 
 - **Kyle McDonald** — creator of the upstream [Apocalypse Early Warning System](https://github.com/kylemcdonald/ews). This bot is a thin Discord adapter; the signal is his.

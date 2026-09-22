@@ -136,10 +136,81 @@ sqlite3 data-prod/ews.db 'SELECT kind, count(*) FROM events GROUP BY kind ORDER 
 tail -f data-prod/ews.log | jq .
 ```
 
+## // PENTAGON PIZZA WATCH
+
+A second bot lives in this repo: `src/pizza/`. Same toolchain, same voice, different signal.
+
+It mirrors [@PenPizzaReport](https://x.com/PenPizzaReport), which reads Google Maps busyness for
+pizzerias near the Pentagon and for Freddie's Beach Bar in Arlington, the closest gay bar to the
+building. The folk thesis is that staff working a late crisis order in and skip going out, so busy
+pizza plus an empty bar is the tell. The account calls that pairing the classic indicator. The
+Pentagon dismisses the theory and the account measures foot traffic, not orders.
+
+### // WHAT IT DOES
+
+- Polls the source account through the [Xpoz](https://xpoz.ai) social-data API every 15 minutes.
+- Reads each post into a 1..5 signal level: `1 QUIET`, `2 NOMINAL`, `3 ELEVATED`, `4 HIGH`,
+  `5 CLASSIC INDICATOR`.
+- Announces level transitions to subscribed channels and DMs. Silent otherwise.
+- `/subscribe [channel]` `/unsubscribe` `/status` `/latest` `/help`, plus @-mention and DM free text.
+- Every dispatch quotes the source post verbatim and links to it, because the level is a guess made
+  by pattern-matching someone else's prose.
+
+### // HOW THE LEVEL IS DERIVED
+
+`src/pizza/signal.ts` is a pure function over the post text, and `signal.test.ts` pins it against a
+corpus of real posts. It scores each venue on a -3..+3 busyness scale, attributes each phrase to the
+nearest venue named around it, then weights pizza at 7 and the inverted bar reading at 3:
+
+```
+score  = max(pizza busyness) * 7  +  -min(bar busyness) * 3
+level  = 5 at >= 22, 4 at >= 13, 3 at >= 6, 2 at >= -5, else 1
+```
+
+Busy pizza on its own tops out at level 4. Reaching 5 needs the pairing.
+
+### // RUN IT
+
+```bash
+cp .env.pizza.example .env.pizza && $EDITOR .env.pizza
+bun run pizza:smoke              # live read, no Discord, no writes
+bun run pizza:register-commands
+bun run pizza:dev
+```
+
+`.env.pizza` needs its own `DISCORD_TOKEN` and `DISCORD_CLIENT_ID` from a **second** Discord
+application, plus an `XPOZ_API_KEY` from <https://xpoz.ai/get-token>.
+
+Under Docker the two bots are separate services off one image:
+
+```bash
+docker compose up -d pizza-bot
+docker compose run --rm pizza-register
+docker compose logs -f pizza-bot
+```
+
+### // TUNING
+
+| var                     | default            | purpose                                          |
+|-------------------------|--------------------|--------------------------------------------------|
+| `PIZZA_MIN_ALERT_LEVEL` | `3`                | fan-out floor; below it transitions are logged only |
+| `PIZZA_FETCH_LIMIT`     | `25`               | posts pulled per tick; the account posts in bursts |
+| `PIZZA_ACCOUNT`         | `PenPizzaReport`   | source handle                                     |
+| `POLL_CRON`             | `*/15 * * * *`     | poll cadence                                      |
+| `DATABASE_PATH`         | `./data/pizza.db`  | must differ from the EWS bot's path               |
+
+### // PRIOR ART
+
+Phone alerts for this index already exist — [Pentagon Pizza Alert](https://pentagonpizzaalert.com/)
+ships iOS, Android and a web dashboard with push on HIGH, and
+[pizzint.watch](https://www.pizzint.watch/) runs a live board. Neither offers Discord, and no public
+API or feed for the index exists, which is why this bot reads the account rather than the index.
+
 ## // CREDITS
 
 - **Kyle McDonald** — creator of the upstream [Apocalypse Early Warning System](https://github.com/kylemcdonald/ews). This bot is a thin Discord adapter; the signal is his.
-- **Jamie Dubs** ([@jamiew](https://github.com/jamiew)) — author of this bot.
+- **@PenPizzaReport** — the open-source pizza tracking the Pentagon Pizza Watch bot mirrors.
+- **Jamie Dubs** ([@jamiew](https://github.com/jamiew)) — author of these bots.
 
 ```
 ███████╗ █████╗ ████████╗    ██╗      █████╗ ██████╗

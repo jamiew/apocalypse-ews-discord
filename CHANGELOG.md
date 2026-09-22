@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-09-22
+
+### Pentagon Pizza Watch
+
+A second bot in this repo, under `src/pizza/`. Mirrors [@PenPizzaReport](https://x.com/PenPizzaReport)
+into Discord: pizza and bar traffic near the Pentagon, read into a 1..5 signal level, announced on
+transition.
+
+- `signal.ts` classifies a post into a level with a pure function — venue terms and busyness phrases
+  matched by position, pizza weighted 7 against an inverted bar weighted 3. Pinned by a test corpus of
+  real posts from the account.
+- Ingest runs through the Xpoz social-data API (`@xpoz/xpoz`), Zod-validated at the boundary since
+  every SDK field is optional and nullable.
+- `seen_posts` is the idempotency boundary; `signal_state` is the single-row level tracker. A burst of
+  posts in one tick produces one dispatch carrying the newest reading, not one per post.
+- `PIZZA_MIN_ALERT_LEVEL` (default 3) is the fan-out floor. Transitions below it are recorded and
+  logged but not announced, so routine wobble does not train people to mute the channel.
+- First observation is silent, matching the EWS bot. `/status` and `/latest` cover it.
+- New `/latest` command, plus `latest` / `last report` / `now` as DM and mention free text.
+- Every dispatch quotes the source post and links to it. The derived level is a guess about someone
+  else's prose and says so.
+- Runs as its own Discord application with its own database: `.env.pizza`, `data/pizza.db`, and the
+  `pizza-bot` / `pizza-register` compose services off the existing image.
+- `bun run pizza:smoke` does a live read with no Discord and no writes.
+
+### Shared
+
+- Extracted `src/intent.ts` — free-text intent classification, mention stripping, welcome-channel
+  selection, operator DM formatting. Mission-agnostic, now used by both bots. `src/discord.ts`
+  re-exports the public names, so existing call sites are unchanged.
+- `classifyWith` is generic over its pattern table, which is how the pizza bot adds a `latest` intent
+  without forking the EWS table.
+
 ## 2026-05-18
 
 - `scripts/sync-from-prod.sh` — pull prod sqlite db + log to a local dir for analysis. Uses `VACUUM INTO` inside the bot container for a WAL-safe atomic snapshot; reuses `.deploy.env`; default dest `./data-prod/` (matches new `data-*/` gitignore rule).

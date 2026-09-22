@@ -49,125 +49,34 @@ import {
 	type SubscribeVia,
 	subscriberAddress,
 } from "./db.js";
+import {
+	BASE_INTENT_PATTERNS,
+	classifyWelcomeError,
+	classifyWith,
+	formatOperatorDm,
+	pickWelcomeChannelFrom,
+	stripMention,
+	type WelcomeChannelCandidate,
+} from "./intent.js";
 import { childLogger } from "./log.js";
+
+// Re-exported so existing call sites and tests keep importing them from here.
+export {
+	classifyWelcomeError,
+	formatOperatorDm,
+	pickWelcomeChannelFrom,
+	stripMention,
+	type WelcomeChannelCandidate,
+};
 
 const log = childLogger("discord");
 
-type FreeTextIntent = Exclude<MentionIntent, "other">;
-
-const INTENT_PATTERNS: Record<FreeTextIntent, readonly RegExp[]> = {
-	unsubscribe: [
-		/^unsubscribe$/,
-		/^unsub$/,
-		/^stop$/,
-		/^cancel$/,
-		/^quit$/,
-		/^end$/,
-		/^remove$/,
-		/\bunsubscribe\b/,
-		/\bunsub\b/,
-		/\bopt out\b/,
-		/\bstand down\b/,
-		/\bremove me\b/,
-	],
-	subscribe: [
-		/^subscribe$/,
-		/^sub$/,
-		/^start$/,
-		/^yes$/,
-		/^y$/,
-		/\bsubscribe\b/,
-		/\bopt in\b/,
-		/\bsign me up\b/,
-		/\badd me\b/,
-	],
-	status: [
-		/^status$/,
-		/^state$/,
-		/^level$/,
-		/\bstatus\b/,
-		/\bstate\b/,
-		/\bcurrent level\b/,
-		/\bwhat(?:'s| is) (?:the |my )?status\b/,
-		/\bwhat(?:'s| is) (?:the |my )?level\b/,
-	],
-	help: [
-		/^\?$/,
-		/^help$/,
-		/^commands?$/,
-		/^options?$/,
-		/^info$/,
-		/\bhelp\b/,
-		/\bcommands?\b/,
-		/\boptions?\b/,
-		/\bwhat can you do\b/,
-		/\bhow does this work\b/,
-	],
-};
-
-function normalizeFreeText(raw: string): string {
-	return raw
-		.trim()
-		.toLowerCase()
-		.replaceAll("’", "'")
-		.replace(/[^a-z0-9?'\s]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
-function classifyFreeText(raw: string): MentionIntent {
-	const text = normalizeFreeText(raw);
-	if (!text) return "other";
-
-	let best: { intent: FreeTextIntent; index: number; priority: number } | null = null;
-	const intents = Object.entries(INTENT_PATTERNS) as [FreeTextIntent, readonly RegExp[]][];
-
-	for (const [priority, [intent, patterns]] of intents.entries()) {
-		for (const pattern of patterns) {
-			const match = pattern.exec(text);
-			const index = match?.index;
-			if (index == null) continue;
-			if (
-				best == null ||
-				index < best.index ||
-				(index === best.index && priority < best.priority)
-			) {
-				best = { intent, index, priority };
-			}
-		}
-	}
-
-	return best?.intent ?? "other";
-}
-
 export function classifyDmText(raw: string): DmIntent {
-	return classifyFreeText(raw);
+	return classifyWith(BASE_INTENT_PATTERNS, raw);
 }
 
 export function classifyMentionText(raw: string): MentionIntent {
-	return classifyFreeText(raw);
-}
-
-export function stripMention(content: string, botUserId: Snowflake): string {
-	return content.replace(new RegExp(`<@!?${botUserId}>`, "g"), "").trim();
-}
-
-export interface WelcomeChannelCandidate {
-	id: Snowflake;
-	type: ChannelType;
-	position: number;
-	canSend: boolean;
-}
-
-export function pickWelcomeChannelFrom(
-	systemChannel: WelcomeChannelCandidate | null,
-	channels: readonly WelcomeChannelCandidate[],
-): WelcomeChannelCandidate | null {
-	if (systemChannel?.canSend) return systemChannel;
-	const sendable = channels
-		.filter((c) => c.type === ChannelType.GuildText && c.canSend)
-		.sort((a, b) => a.position - b.position);
-	return sendable[0] ?? null;
+	return classifyWith(BASE_INTENT_PATTERNS, raw);
 }
 
 const ALL_CONTEXTS: InteractionContextType[] = [
@@ -472,18 +381,6 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 			reactivated: result.reactivated,
 		});
 	}
-}
-
-export function classifyWelcomeError(err: unknown): "missing_access" | "other" {
-	if (
-		err != null &&
-		typeof err === "object" &&
-		"code" in err &&
-		(err as { code?: unknown }).code === 50001
-	) {
-		return "missing_access";
-	}
-	return "other";
 }
 
 function recordWelcomeFailure(
@@ -951,34 +848,6 @@ interface AnnounceArgs {
 	channelName?: string | undefined;
 	userId: Snowflake;
 	userTag: string;
-}
-
-// Multi-line bullet format, readable in the operator's Discord DM client.
-// Names are best-effort — IDs are always present, names appear when known.
-export function formatOperatorDm(args: {
-	header: string;
-	guildId?: Snowflake | null | undefined;
-	guildName?: string | undefined;
-	channelId?: Snowflake | null | undefined;
-	channelName?: string | undefined;
-	userId?: Snowflake | undefined;
-	userTag?: string | undefined;
-	extras?: ReadonlyArray<{ label: string; value: string }>;
-}): string {
-	const lines = [args.header];
-	if (args.guildId) {
-		lines.push(`• guild: ${args.guildName ? `"${args.guildName}" ` : ""}(${args.guildId})`);
-	}
-	if (args.channelId) {
-		lines.push(`• channel: ${args.channelName ? `#${args.channelName} ` : ""}(${args.channelId})`);
-	}
-	if (args.userId) {
-		lines.push(`• user: ${args.userTag ? `${args.userTag} ` : ""}(${args.userId})`);
-	}
-	for (const e of args.extras ?? []) {
-		lines.push(`• ${e.label}: ${e.value}`);
-	}
-	return lines.join("\n");
 }
 
 function subscribeHeader(args: AnnounceArgs & { reactivated: boolean }): string {

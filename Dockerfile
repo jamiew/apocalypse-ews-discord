@@ -18,4 +18,7 @@ ENV LOG_FILE=/app/data/ews.log
 
 # Bun reads TypeScript directly — no build step. Source ships in the
 # image and the runtime executes it.
+#
+# One image, two bots. The default command is the EWS bot; the Pentagon Pizza
+# Watch service overrides both the command and the data paths in compose.yaml.
 CMD ["bun", "run", "src/index.ts"]

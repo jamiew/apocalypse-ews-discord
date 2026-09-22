@@ -42,3 +42,37 @@ services:
     command: ["bun", "run", "src/scripts/register-commands.ts"]
     volumes:
       - ./data:/app/data
+
+  # Pentagon Pizza Watch. Separate Discord application and separate database
+  # file, so it runs alongside the EWS bot rather than replacing it. Its env
+  # lives in .env.pizza — do not point both services at the same file.
+  pizza-bot:
+    build: .
+    image: apocalypse-ews-bot:local
+    container_name: pentagon-pizza-bot
+    restart: unless-stopped
+    env_file: .env.pizza
+    environment:
+      DATABASE_PATH: /app/data/pizza.db
+      LOG_FILE: /app/data/pizza.log
+    command: ["bun", "run", "src/pizza/index.ts"]
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "bun", "-e", "process.exit(0)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+  # One-shot, same contract as `register`. Run after changing the pizza bot's
+  # commandDefinitions: `docker compose run --rm pizza-register`.
+  pizza-register:
+    build: .
+    image: apocalypse-ews-bot:local
+    profiles: [tools]
+    env_file: .env.pizza
+    environment:
+      DATABASE_PATH: /app/data/pizza.db
+    command: ["bun", "run", "src/pizza/scripts/register-commands.ts"]
+    volumes:
+      - ./data:/app/data

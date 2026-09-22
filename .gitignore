@@ -5,6 +5,7 @@ dist/
 .env.*
 .deploy.env
 !.env.example
+!.env.pizza.example
 data/
 data-*/
 *.db

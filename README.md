@@ -106,7 +106,7 @@ Configure once in `.deploy.env` (gitignored via the `.env.*` rule):
 What it does, in one SSH session on the remote:
 
 1. `git fetch --prune ${DEPLOY_REMOTE}` and `git reset --hard ${DEPLOY_REMOTE}/${DEPLOY_BRANCH}` — clean slate, no merge surprises.
-2. `docker compose build --pull` — refresh the `oven/bun:1-debian` base.
+2. `docker compose build --pull` — refresh the pinned `oven/bun:1.4.4-debian` base. Bun carries its own root CAs, so bump the pin deliberately when Bun ships a trust-store fix.
 3. `docker compose up -d --build --force-recreate` — rebuild the image with new source and replace the container even when the image hash is unchanged (catches `.env`-only changes too).
 4. `docker compose run --rm register` — re-register slash commands. Idempotent, runs every time.
 5. `docker image prune -f` — reclaim space from the now-dangling old image.

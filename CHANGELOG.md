@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-25
+
+### Security
+
+- Base image pinned to `oven/bun:1.4.4-debian`. Bun ships its own root CAs, and 1.3.13 still trusted the compromised eMudhra root `emSign ECC Root CA - G3`, so a forged certificate for any host (Discord, the RSS feed, the dashboard) would have passed. 1.4.4 rejects it.
+
 ## 2026-05-18
 
 - `scripts/sync-from-prod.sh` — pull prod sqlite db + log to a local dir for analysis. Uses `VACUUM INTO` inside the bot container for a WAL-safe atomic snapshot; reuses `.deploy.env`; default dest `./data-prod/` (matches new `data-*/` gitignore rule).

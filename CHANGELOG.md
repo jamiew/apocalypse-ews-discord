@@ -13,12 +13,13 @@
 
 ### Security
 
+- Removed the unnecessary Message Content gateway intent. DMs and direct @mentions retain access to their content without privileged approval. Setup now documents safe toggle removal and the separate app-verification requirement for growing past 100 servers.
 - Dependencies bumped to latest: discord.js 14.28.1, zod 4.6.7, node-cron 4.6.0. Clears 17 `bun audit` advisories (7 high) in transitive `undici` <6.29.1 (TLS cert validation bypass, WebSocket / content-encoding DoS), `ws` <8.21.0 (fragment memory exhaustion), and `zod` <4.6.6 (oversized-collection memory exhaustion).
 - `/subscribe` and `/unsubscribe` now check ManageGuild in the handler for guild channels. Previously only the command's `default_member_permissions` gated them, which server admins can widen and user-installed invocations don't carry — any member could re-route or silence a server's alerts. The @-mention path already checked.
 - Client-wide `allowedMentions: { parse: [] }`. Upstream feed text relayed to every subscriber can no longer ping users, roles, or @everyone.
 - Upstream fields clipped (256 chars, links 512) and backticks neutralised inside the level-change code fence. An oversized title previously failed every send for an alert already marked seen, dropping it for good.
 - RSS and dashboard fetches go through `fetchTextCapped` (15s timeout, 16 MiB body cap). rss-parser now parses a string instead of fetching itself.
-- Operator DMs escape markdown (incl. masked links) in guild, channel, and user names.
+- Replaced operator DMs with `INFO_WEBHOOK_URL` for DEBUG/INFO and `ERROR_WEBHOOK_URL` for WARN/ERROR. Install/uninstall and routine status stay separate from urgent alerts and failures. Removed `OPERATOR_USER_ID` and `DEV_ADMIN_USER_ID`; empty webhook URLs disable their stream. Messages suppress mentions, redact credentials and message bodies, and stay within Discord's length limit. Delivery is best-effort; pending requests drain before exit. Renamed the secret-free configuration template to `.env.sample`.
 - Container runs as the unprivileged `bun` user. The entrypoint chowns `./data` (root-owned from earlier deploys) on start, then drops privileges; on the host, `./data` ends up owned by uid 1000. Compose adds `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` (+ CHOWN/SETUID/SETGID for the entrypoint), `no-new-privileges`. `scripts/sync-from-prod.sh` execs as `bun` to match.
 - `.dockerignore` keeps `.env*`, `data*/`, and `.git` out of the build context.
 - CI actions pinned to commit SHAs, checkout without persisted credentials, bun pinned to 1.4.4.
@@ -31,6 +32,7 @@
 - Stricter gates. TypeScript: `verbatimModuleSyntax`, `erasableSyntaxOnly`, `noUncheckedSideEffectImports`, `allowUnreachableCode: false`, `allowUnusedLabels: false`. Biome: `noFloatingPromises`, `noMisusedPromises`, `useExhaustiveSwitchCases`, `noConsole`, `noProcessEnv`, `useAwait`, `noShadow`, `noImportCycles`, `noUnusedFunctionParameters`, `noUndeclaredDependencies`, `useThrowOnlyError`, `useErrorMessage`, `noEvolvingTypes`. Caught one floating promise: shutdown didn't await `node-cron` task stops.
 - Dropped the two remaining `as` casts in `discord.ts` in favour of `in` narrowing.
 - Dependabot: weekly grouped version updates (bun, GitHub Actions, Docker); alerts + automatic security PRs enabled on the repo. Daily `bun audit --audit-level=high` workflow fails on high/critical advisories.
+- Documented team ownership transfer, public privacy/terms setup, stored message data, and release checks. The landing page explains the minimal invite permissions and labels its older screenshot. Welcome and subscription messages now describe every emergency-level change rather than only level 5 incidents.
 
 ## 2026-10-25
 

@@ -12,7 +12,6 @@ import {
 	classifyMentionText,
 	classifyWelcomeError,
 	commandDefinitions,
-	formatOperatorDm,
 	pickWelcomeChannelFrom,
 	stripMention,
 	type WelcomeChannelCandidate,
@@ -123,91 +122,6 @@ describe("pickWelcomeChannelFrom", () => {
 	it("returns null when nothing is sendable", () => {
 		const channels = [text({ id: "x", canSend: false })];
 		expect(pickWelcomeChannelFrom(null, channels)).toBeNull();
-	});
-});
-
-describe("formatOperatorDm", () => {
-	it("renders subscribe with names and IDs as bullets", () => {
-		expect(
-			formatOperatorDm({
-				header: "SUBSCRIBE guild_channel via command",
-				guildId: "100000000000000001",
-				guildName: "Example Guild",
-				channelId: "100000000000000002",
-				channelName: "alerts",
-				userId: "100000000000000003",
-				userTag: "example-user",
-			}),
-		).toBe(
-			[
-				"SUBSCRIBE guild_channel via command",
-				'• guild: "Example Guild" (100000000000000001)',
-				"• channel: #alerts (100000000000000002)",
-				"• user: example-user (100000000000000003)",
-			].join("\n"),
-		);
-	});
-
-	it("falls back to ID-only when names are missing", () => {
-		expect(
-			formatOperatorDm({
-				header: "SUBSCRIBE guild_channel via command",
-				guildId: "1",
-				channelId: "2",
-				userId: "3",
-				userTag: "u",
-			}),
-		).toBe(
-			[
-				"SUBSCRIBE guild_channel via command",
-				"• guild: (1)",
-				"• channel: (2)",
-				"• user: u (3)",
-			].join("\n"),
-		);
-	});
-
-	it("renders dm subscribe with only the user bullet", () => {
-		expect(
-			formatOperatorDm({
-				header: "SUBSCRIBE dm via dm",
-				guildId: null,
-				channelId: null,
-				userId: "3",
-				userTag: "u",
-			}),
-		).toBe(["SUBSCRIBE dm via dm", "• user: u (3)"].join("\n"));
-	});
-
-	it("renders INSTALL with extras", () => {
-		expect(
-			formatOperatorDm({
-				header: "INSTALL",
-				guildId: "100000000000000004",
-				guildName: "Other Example Guild",
-				extras: [{ label: "members", value: "5" }],
-			}),
-		).toBe(
-			["INSTALL", '• guild: "Other Example Guild" (100000000000000004)', "• members: 5"].join("\n"),
-		);
-	});
-
-	it("escapes markdown in stranger-controlled names", () => {
-		expect(
-			formatOperatorDm({
-				header: "INSTALL",
-				guildId: "1",
-				guildName: "**[click](https://evil.example)**",
-				userId: "3",
-				userTag: "a_b_",
-			}),
-		).toBe(
-			[
-				"INSTALL",
-				'• guild: "\\*\\*\\[click](https://evil.example)\\*\\*" (1)',
-				"• user: a\\_b\\_ (3)",
-			].join("\n"),
-		);
 	});
 });
 

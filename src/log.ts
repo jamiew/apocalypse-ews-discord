@@ -3,6 +3,19 @@ import { dirname } from "node:path";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
+export interface LogRecord {
+	ts: string;
+	level: LogLevel;
+	message: string;
+	context?: Record<string, unknown> | undefined;
+}
+
+let logSink: ((record: LogRecord) => void) | undefined;
+
+export function setLogSink(sink: ((record: LogRecord) => void) | undefined): void {
+	logSink = sink;
+}
+
 const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
 const NODE_ENV = process.env["NODE_ENV"] ?? "development";
@@ -52,6 +65,13 @@ function safeStringify(value: unknown): string {
 }
 
 function emit(level: LogLevel, message: string, context?: Record<string, unknown>): void {
+	if (logSink) {
+		try {
+			logSink({ ts: new Date().toISOString(), level, message, context });
+		} catch {
+			// Notifications must not interrupt local logging.
+		}
+	}
 	if (ORDER[level] < ORDER[MIN_LEVEL]) return;
 
 	const ts = new Date().toISOString();

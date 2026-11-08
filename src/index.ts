@@ -96,10 +96,7 @@ async function main() {
 	const shutdown = async (signal: string) => {
 		log.info("shutting down", { signal });
 		db.recordEvent({ kind: "shutdown", payload: { signal } });
-		pollTask.stop();
-		levelTask.stop();
-		reminderTask.stop();
-		heartbeatTask.stop();
+		await Promise.all([pollTask, levelTask, reminderTask, heartbeatTask].map((t) => t.stop()));
 		await client.destroy().catch(() => {});
 		db.close();
 		process.exit(0);

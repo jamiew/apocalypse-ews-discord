@@ -111,6 +111,8 @@ The same first-run commands without `DOCKER_CONTEXT`. Running Docker this way ne
 
 Static splash at `/docs/`. GitHub → Settings → Pages → `main` / `/docs`. The install buttons read a single `CLIENT_ID` constant in `docs/index.html`.
 
+The site links to a [privacy policy](https://jamiew.github.io/apocalypse-ews-discord/privacy.html) and [terms of use](https://jamiew.github.io/apocalypse-ews-discord/terms.html). Keep these pages current when data handling changes. The bot stores DM and mention text, commands, Discord IDs, and install details; unsubscribing does not delete old records.
+
 ## // REDEPLOY
 
 Every subsequent push gets shipped with the same script, from your laptop:

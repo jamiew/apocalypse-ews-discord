@@ -13,11 +13,15 @@ COPY src ./src
 COPY migrations ./migrations
 COPY tsconfig.json ./
 
-RUN mkdir -p /app/data
+COPY scripts/docker-entrypoint.sh /usr/local/bin/ews-entrypoint
+RUN mkdir -p /app/data && chown bun:bun /app/data
 VOLUME ["/app/data"]
 
 ENV DATABASE_PATH=/app/data/ews.db
 ENV LOG_FILE=/app/data/ews.log
+
+# Entrypoint fixes /app/data ownership as root, then execs CMD as `bun`.
+ENTRYPOINT ["/usr/local/bin/ews-entrypoint"]
 
 # Bun reads TypeScript directly — no build step. Source ships in the
 # image and the runtime executes it.

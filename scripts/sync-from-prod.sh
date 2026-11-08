@@ -67,13 +67,16 @@ echo
 # The container's /app/data is bind-mounted to $DEPLOY_PATH/data, so the
 # snapshot file appears on the host filesystem directly.
 echo ">>> Snapshotting ews.db inside bot container..."
-# Clear any stale snapshot dir (root-owned, so done inside the container).
-ssh "${ssh_args[@]}" "$SSH_TARGET" "cd $DEPLOY_PATH && docker compose exec -T bot rm -rf /app/data/.sync"
+# Quoted for the remote shell; exec as the same unprivileged user that owns /app/data.
+remote_cd="cd $(printf '%q' "$DEPLOY_PATH")"
+in_bot="docker compose exec -T --user bun bot"
+# Clear any stale snapshot dir.
+ssh "${ssh_args[@]}" "$SSH_TARGET" "$remote_cd && $in_bot rm -rf /app/data/.sync"
 # Pipe a tiny `VACUUM INTO` script through ssh into the bot container, write
 # it to /tmp inside the container, and run it. `VACUUM INTO` produces a
 # consistent copy even with WAL writers active.
 ssh "${ssh_args[@]}" "$SSH_TARGET" \
-	"cd $DEPLOY_PATH && docker compose exec -T bot sh -c 'cat > /tmp/snapshot-db.ts && bun run /tmp/snapshot-db.ts && rm -f /tmp/snapshot-db.ts'" <<'BUN'
+	"$remote_cd && $in_bot sh -c 'cat > /tmp/snapshot-db.ts && bun run /tmp/snapshot-db.ts && rm -f /tmp/snapshot-db.ts'" <<'BUN'
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 
@@ -82,7 +85,7 @@ const db = new Database("/app/data/ews.db", { readonly: true });
 db.exec("VACUUM INTO '/app/data/.sync/ews.db'");
 db.close();
 BUN
-size=$(ssh "${ssh_args[@]}" "$SSH_TARGET" "cd $DEPLOY_PATH && docker compose exec -T bot stat -c%s /app/data/.sync/ews.db" | tr -d '\r')
+size=$(ssh "${ssh_args[@]}" "$SSH_TARGET" "$remote_cd && $in_bot stat -c%s /app/data/.sync/ews.db" | tr -d '\r')
 echo "  snapshot: ${size} bytes"
 
 echo ">>> Pulling snapshot db..."
@@ -92,7 +95,7 @@ echo ">>> Pulling ews.log..."
 rsync -az -e "$RSYNC_E" "${SSH_TARGET}:${DEPLOY_PATH}/data/ews.log" "$DEST/ews.log"
 
 echo ">>> Cleaning up snapshot on remote..."
-ssh "${ssh_args[@]}" "$SSH_TARGET" "cd $DEPLOY_PATH && docker compose exec -T bot rm -rf /app/data/.sync"
+ssh "${ssh_args[@]}" "$SSH_TARGET" "$remote_cd && $in_bot rm -rf /app/data/.sync"
 
 echo
 echo "Synced to $DEST"

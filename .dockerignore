@@ -1,0 +1,14 @@
+.env
+.env.*
+.deploy.env
+data/
+data-*/
+*.db
+*.db-*
+*.log
+.git
+node_modules
+.claude
+.vscode
+.idea
+docs

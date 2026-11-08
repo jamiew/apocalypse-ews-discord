@@ -18,7 +18,7 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 - DM the bot direct: same words, no mention needed.
 - No privileged intents required. DMs and direct @mentions work without Message Content Intent. The server invite requests only View Channels and Send Messages, not Administrator.
 - Annual reminder: "still subscribed. nothing has ended. go outside."
-- Separate Discord webhooks for DEBUG/INFO activity (including install / uninstall) and WARN/ERROR notifications.
+- Separate Discord webhooks for INFO events (including install / uninstall) and WARN/ERROR notifications. DEBUG stays local.
 
 ## // STACK
 
@@ -83,11 +83,13 @@ sqlite3 -readonly data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id 
 
 Create two incoming webhooks in **Server Settings → Integrations → Webhooks**, choosing a different channel for each. Save their URLs in the deployment's `.env`, then rebuild/restart the bot. Keep the URLs private.
 
-- `INFO_WEBHOOK_URL`: all DEBUG/INFO logs, including separate install/uninstall messages, subscriptions, startup/shutdown, routine polls, and heartbeat status.
+- `INFO_WEBHOOK_URL`: installs/uninstalls, startup/shutdown, and level changes below 4.
 - `ERROR_WEBHOOK_URL`: all WARN/ERROR logs, including RSS alerts, level changes reaching 4–5, and poll/delivery failures. Lower-level changes go to INFO. Keep this channel unmuted.
 - These replace operator DMs. Remove `OPERATOR_USER_ID` and `DEV_ADMIN_USER_ID` from your configuration. Empty or unset URLs disable their stream without falling back to another destination. Subscriber alerts and commands are unchanged.
 
-Webhooks use severity-colored Discord embeds with an event title, readable details, source, and timestamp. Local file logs remain JSON. Routing receives all severities; `LOG_LEVEL` still controls local output. Messages suppress mentions and redact credentials and message bodies. Delivery is best-effort with a five-second timeout, no retries or replay. INFO-webhook failures notify the ERROR destination; ERROR-webhook failures stay local to avoid loops. Shutdown drains pending deliveries. Check the INFO channel after deployment with a test install/uninstall and a restart.
+Webhooks use severity-colored Discord embeds with an event title, readable details, source, and timestamp. Only INFO and above reach webhooks. Unchanged polls, command/DM/mention activity, subscriptions, and routine heartbeat/reminder work are DEBUG. Set `LOG_LEVEL=debug` to include them in local output; they still never reach webhooks. Durable SQLite event recording is unchanged.
+
+Messages suppress mentions and redact credentials and message bodies. Delivery is best-effort with a five-second timeout, no retries or replay. INFO-webhook failures notify the ERROR destination; ERROR-webhook failures stay local to avoid loops. Shutdown drains pending deliveries. Check the INFO channel after deployment with a test install/uninstall and a restart.
 
 Rejected installs never reach the bot, and a stopped process cannot send warnings. App-verification blocks and full outages still need portal checks or external monitoring.
 

@@ -238,56 +238,69 @@ details[open] > summary.dispatch::before {
 	}
 }
 
-/* Install buttons — beveled like a classic 90s OS button: light top/left,
- * dark bottom/right. Both buttons identical so neither feels secondary. */
+/* Both install destinations get the same prominent, Discord-blue treatment. */
 .install-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 12px;
 }
 .btn {
-	display: block;
-	padding: 14px 16px;
-	background: var(--banner-bg);
-	color: var(--page-text);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 88px;
+	padding: 16px;
+	background: #5865f2;
+	color: #fff;
 	text-decoration: none;
-	font-family: var(--body);
-	border: 0;
-	border-top: 2px solid #fff;
-	border-left: 2px solid #fff;
-	border-right: 2px solid #888;
-	border-bottom: 2px solid #888;
-	box-shadow: 0 0 0 1px var(--panel-border);
+	font-family: system-ui, sans-serif;
+	border: 1px solid #4752c4;
+	border-bottom-width: 3px;
+	border-radius: 6px;
+	box-shadow: 0 2px 4px #0002;
 	transition:
 		background-color 80ms linear,
 		transform 80ms linear;
 }
 .btn:visited {
-	color: var(--page-text);
+	color: #fff;
 }
 .btn:hover {
-	background: #ffe690;
+	background: #4752c4;
 	text-decoration: none;
 }
+.btn:focus-visible {
+	outline: 3px solid #23272a;
+	outline-offset: 3px;
+}
 .btn:active {
-	background: #f5dc60;
-	border-top-color: #888;
-	border-left-color: #888;
-	border-right-color: #fff;
-	border-bottom-color: #fff;
-	transform: translate(1px, 1px);
+	background: #3c45a5;
+	box-shadow: none;
+	transform: translateY(1px);
+}
+.btn-icon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 28px;
+	height: 28px;
+	border: 1.5px solid currentColor;
+	border-radius: 5px;
+	font-size: 24px;
+	line-height: 1;
+}
+.btn-copy {
+	min-width: 0;
 }
 .btn-label {
 	display: block;
 	font-weight: 700;
 	font-size: 1.05rem;
-	margin-bottom: 2px;
+	margin-bottom: 4px;
 }
 .btn-sub {
 	display: block;
 	font-size: 0.85rem;
-	color: var(--page-muted);
-	font-family: var(--mono);
+	color: inherit;
 }
 
 .howto {
@@ -419,7 +432,7 @@ footer p {
 	}
 	.install-grid {
 		grid-template-columns: 1fr;
-		gap: 8px;
+		gap: 12px;
 	}
 	.btn {
 		padding: 12px 14px;

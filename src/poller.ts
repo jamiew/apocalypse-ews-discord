@@ -70,7 +70,7 @@ export async function pollOnce(args: {
 			kind: "alert_seen",
 			payload: { guid: item.guid, title: item.title, link: item.link, pubDate: item.pubDate },
 		});
-		log.info("alert seen", {
+		log.debug("alert seen", {
 			guid: item.guid,
 			title: item.title,
 			pubDate: item.pubDate,

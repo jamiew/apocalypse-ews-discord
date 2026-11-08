@@ -83,7 +83,7 @@ async function main() {
 	const reminderTask = cron.schedule(env.REMINDER_CRON, async () => {
 		try {
 			const result = await sendDueReminders({ db, client });
-			if (result.sent || result.failed) reminderLog.info("reminder sweep", result);
+			if (result.sent || result.failed) reminderLog.debug("reminder sweep", result);
 		} catch (err) {
 			reminderLog.error("reminder error", { err });
 		}
@@ -94,9 +94,9 @@ async function main() {
 		try {
 			const result = await sendHeartbeat({ db, client });
 			if (result.fired) {
-				heartbeatLog.info("heartbeat dispatched", { sent: result.sent, failed: result.failed });
+				heartbeatLog.debug("heartbeat dispatched", { sent: result.sent, failed: result.failed });
 			} else {
-				heartbeatLog.info("heartbeat skipped", { reason: result.reason });
+				heartbeatLog.debug("heartbeat skipped", { reason: result.reason });
 			}
 		} catch (err) {
 			heartbeatLog.error("heartbeat error", { err });

@@ -5,8 +5,11 @@
 ### Notifications
 
 - Operator webhooks now use severity-colored Discord embeds with readable details and timestamps instead of JSON blocks. Local logs stay structured, and credential/message-body redaction still applies.
+- Webhooks now exclude DEBUG entirely. Routine polls, commands, messages, subscriptions, and heartbeat/reminder work stay in DEBUG; installs/removals, lifecycle events, and real alerts remain visible. SQLite event recording is unchanged.
 
 ### Website
+
+- Install buttons now use Discord blue, clear install labels, and visible keyboard focus instead of the pale-yellow bevel.
 
 - Added dated, plain-English privacy and terms pages, linked from the homepage. The privacy policy explains message logging, stored Discord details, outside services, and how to request deletion.
 

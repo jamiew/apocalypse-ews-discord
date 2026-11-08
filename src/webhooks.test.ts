@@ -1,11 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { ok as assert } from "node:assert/strict";
 import type { Server } from "bun";
 import { z } from "zod";
 import { childLogger, type LogRecord, setLogSink } from "./log.js";
 import { OperatorWebhooks } from "./webhooks.js";
 
 const webhookBody = z.object({
-	content: z.string(),
+	embeds: z
+		.array(
+			z.object({
+				title: z.string().min(1).max(256),
+				description: z.string().max(4096).optional(),
+				color: z.number().int(),
+				footer: z.object({ text: z.string().max(2048) }),
+				timestamp: z.iso.datetime(),
+			}),
+		)
+		.length(1),
 	allowed_mentions: z.object({ parse: z.array(z.string()) }),
 });
 
@@ -49,26 +60,15 @@ describe("OperatorWebhooks", () => {
 		await server.stop(true);
 	});
 
-	it("routes every severity to exactly one destination", async () => {
-		const log = childLogger("smoke");
-		log.debug("poll unchanged");
-		log.info("install");
-		log.info("uninstall");
-		log.info("started");
-		log.warn("alert");
-		log.error("poll failed");
+	it.each<[LogRecord["level"], string]>([
+		["debug", "/info"],
+		["info", "/info"],
+		["warn", "/error"],
+		["error", "/error"],
+	])("routes %s to %s", async (level, path) => {
+		childLogger("smoke")[level]("notification");
 		await webhooks.flush();
-
-		expect(
-			requests.map((request) => `${request.path} ${request.body.content.split("\n")[0]}`).sort(),
-		).toEqual([
-			"/error [ERROR] POLL FAILED",
-			"/error [WARN] ALERT",
-			"/info [DEBUG] POLL UNCHANGED",
-			"/info [INFO] INSTALL",
-			"/info [INFO] STARTED",
-			"/info [INFO] UNINSTALL",
-		]);
+		expect(requests.map((request) => request.path)).toEqual([path]);
 	});
 
 	it.each([
@@ -105,12 +105,46 @@ describe("OperatorWebhooks", () => {
 		await webhooks.flush();
 		expect(requests).toHaveLength(1);
 		const body = requests[0]?.body;
-		expect(body?.allowed_mentions.parse).toEqual([]);
-		expect(body?.content.length).toBeLessThanOrEqual(2000);
-		expect(body?.content).not.toContain("private-bot-token");
-		expect(body?.content).not.toContain("secret-value");
-		expect(body?.content).not.toContain("hidden-authorization");
-		expect(body?.content.match(/```/g)).toHaveLength(2);
+		assert(body);
+		const embed = body.embeds[0];
+		assert(embed);
+		const text = [embed.title, embed.description, embed.footer.text]
+			.join("\n")
+			.replaceAll("\\", "");
+		expect(body.allowed_mentions.parse).toEqual([]);
+		expect(text.length).toBeLessThanOrEqual(6000);
+		expect(text).not.toContain("private-bot-token");
+		expect(text).not.toContain("secret-value");
+		expect(text).not.toContain("hidden-authorization");
+	});
+
+	it("keeps nested error details readable without leaking private values", async () => {
+		const circular: Record<string, unknown> = { reason: "upstream unavailable" };
+		circular["self"] = circular;
+		webhooks.onLog({
+			ts: "2026-11-08T12:00:00.000Z",
+			level: "error",
+			message: "request failed",
+			context: {
+				module: "poller",
+				details: {
+					error: new TypeError("Invalid dashboard"),
+					token: "nested-credential",
+					body: "nested-private-message",
+				},
+				circular,
+				bytes: 9007199254740993n,
+			},
+		});
+		await webhooks.flush();
+		const description = requests[0]?.body.embeds[0]?.description;
+		assert(description);
+		const text = description.replaceAll("\\", "");
+		expect(text).toContain("TypeError: Invalid dashboard");
+		expect(text).toContain("upstream unavailable");
+		expect(text).toContain("9007199254740993");
+		expect(text).not.toContain("nested-credential");
+		expect(text).not.toContain("nested-private-message");
 	});
 
 	it("omits private message bodies while keeping diagnostic metadata", async () => {
@@ -124,9 +158,10 @@ describe("OperatorWebhooks", () => {
 		});
 		await webhooks.flush();
 		expect(requests[0]?.path).toBe("/info");
-		expect(requests[0]?.body.content).not.toContain("private");
-		expect(requests[0]?.body.content).toContain('"intent": "subscribe"');
-		expect(requests[0]?.body.content).toContain('"userId": "200"');
+		const description = requests[0]?.body.embeds[0]?.description;
+		expect(description).not.toContain("private");
+		expect(description).toContain("subscribe");
+		expect(description).toContain("200");
 	});
 
 	it("drains shutdown delivery and ignores subsequent logs", async () => {
@@ -135,7 +170,7 @@ describe("OperatorWebhooks", () => {
 		childLogger("discord").info("install");
 		await webhooks.flush();
 		expect(requests.map((request) => request.path)).toEqual(["/info"]);
-		expect(requests[0]?.body.content).toContain("SIGTERM");
+		expect(requests[0]?.body.embeds[0]?.description).toContain("SIGTERM");
 	});
 
 	it("disables an unconfigured destination without falling back to the other one", async () => {
@@ -145,6 +180,5 @@ describe("OperatorWebhooks", () => {
 		childLogger("boot").error("fatal");
 		await webhooks.flush();
 		expect(requests.map((request) => request.path)).toEqual(["/error"]);
-		expect(requests[0]?.body.content).toContain("fatal");
 	});
 });

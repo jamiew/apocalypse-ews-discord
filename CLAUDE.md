@@ -91,6 +91,14 @@ discord.js interactions are already typed. SQLite rows are typed via `query<Resu
 - Cron strings validated by `node-cron` at runtime, not Zod. Typos crash on first tick.
 - `bun:sqlite`'s `.get()` returns `null`, not `undefined`. Coerce with `?? undefined` if your interface says `T | undefined`.
 
+## // DEPLOY & CONTAINER
+
+- One container per host, Docker Compose. Two supported setups (README "Deploy"): **rootless Docker** (recommended; `docker --context rootless …` or `DOCKER_CONTEXT=rootless`) and rootful Docker. Before touching a running bot, find which daemon has it: `docker --context rootless compose ps`, then plain `docker compose ps`. Never start a second copy on the other daemon — two gateways double every alert.
+- `scripts/docker-entrypoint.sh` runs as root only to `chown` `/app/data` to `bun`, then `setpriv`s to `bun` with no capabilities. Compose adds `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` + `CHOWN`/`SETUID`/`SETGID`, `no-new-privileges`. Writes outside `/app/data` and `/tmp` fail by design.
+- `docker compose exec` skips the entrypoint and runs as root without `DAC_OVERRIDE`, so it can't write to `/app/data`. Use `exec --user bun`.
+- Rootless hosts: `./data` is owned by a subordinate UID on the host. Read with `sqlite3 -readonly` / `tail`; write through the container.
+- `deploy.sh` / `scripts/sync-from-prod.sh` read `.deploy.env`; `DEPLOY_DOCKER_CONTEXT=rootless` targets the rootless daemon on the remote.
+
 ## // LOGGING & EVENTS
 
 Two streams. Both matter.
@@ -119,6 +127,7 @@ Per global `~/.claude/CLAUDE.md`:
 - **New handler → record an event.** Extend `EventKind` AND `EventPayloadByKind` first, then `db.recordEvent({...})` at the action site. Both success and failure deserve their own kinds (`*_ok` / `*_fail`).
 - **New external data source → Zod schema.** Parse before using. No `as`-casts.
 - **Subscribe/unsubscribe action → use `announceSubscribe` / `announceUnsubscribe`.** Don't duplicate event recording, logging, or webhook delivery at the call site.
+- **Public repo → no personal data.** No real Discord user/guild/channel names or IDs, user tags, message text, operator identity, hostnames, or home paths in code, tests, docs, commits, or PRs. Fixtures use obviously fake values (`Example Guild`, `100000000000000001`). Prod `data/` and `data-*/` stay local and gitignored; describe findings in aggregate.
 
 ## // COMMIT MESSAGE STYLE
 

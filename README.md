@@ -70,7 +70,7 @@ State on disk: `./data/ews.db` (sqlite) + `./data/ews.log` (json lines).
 bun run ci   # biome ci . && tsc --noEmit && bun test src
 ```
 
-Single command, same one CI runs. ~100 tests under `bun:test`, in-memory sqlite, co-located beside the file under test.
+Single command, same one CI runs. Tests use `bun:test`, in-memory sqlite, co-located beside the file under test.
 
 Releases use matching package versions, Git tags, and [GitHub Releases](https://github.com/jamiew/apocalypse-ews-discord/releases), not npm publishing (`private: true`). Before tagging a release, run `bun run ci`, verify a deployed install plus slash/DM/@mention commands, and include any required environment migration in the release notes. Team transfer and verification do not themselves require a new bot version.
 
@@ -78,7 +78,7 @@ Releases use matching package versions, Git tags, and [GitHub Releases](https://
 
 ```bash
 tail -f data/ews.log | jq .
-sqlite3 data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id DESC LIMIT 20;'
+sqlite3 -readonly data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id DESC LIMIT 20;'
 ```
 
 Create two incoming webhooks in **Server Settings → Integrations → Webhooks**, choosing a different channel for each. Save their URLs in the deployment's `.env`, then rebuild/restart the bot. Keep the URLs private.
@@ -93,9 +93,27 @@ Rejected installs never reach the bot, and a stopped process cannot send warning
 
 ## // DEPLOY
 
-First-time, on the host:
+A single long-running container. Vercel / Workers / Lambda don't fit (the gateway is a long-lived WebSocket). `./data` is bind-mounted, so the db and log are readable from the host.
+
+The container starts as root only long enough to hand `./data` to the unprivileged `bun` user, then drops every capability. Compose runs it with a read-only root filesystem and `no-new-privileges`.
+
+Pick one Docker setup per host.
+
+### Rootless Docker (recommended)
+
+The bot needs no host privileges. Under [rootless Docker](https://docs.docker.com/engine/security/rootless/) the daemon and containers run as your user, so a container escape gets your user, not root, and you (or a coding agent) can manage the bot without `sudo` or the `docker` group.
+
+One-time host setup:
 
 ```bash
+dockerd-rootless-setuptool.sh install   # creates the "rootless" docker context
+loginctl enable-linger "$USER"           # start the daemon at boot, not at login
+```
+
+First run:
+
+```bash
+export DOCKER_CONTEXT=rootless   # or pass --context rootless to each command
 cp .env.sample .env && $EDITOR .env
 mkdir -p data
 docker compose up -d --build
@@ -103,11 +121,26 @@ docker compose run --rm register   # after editing slash command defs
 docker compose logs -f bot
 ```
 
-`./data` is bind-mounted — db and log are inspectable from the host. Vercel / Workers / Lambda don't fit (the gateway is a long-lived WebSocket).
+On the host, files in `./data` show up owned by a subordinate UID (the container's `bun` user mapped through `/etc/subuid`, often `100999`). You can still read them: `sqlite3 -readonly` and `tail` work. Write to them through the container: `docker compose exec --user bun bot …`.
+
+Moving an existing rootful deployment over:
+
+```bash
+docker --context default compose down    # stop the copy on the root daemon
+sudo chown -R "$USER": data              # rootless can't take over root-owned files
+DOCKER_CONTEXT=rootless docker compose up -d --build
+DOCKER_CONTEXT=rootless docker compose run --rm register
+```
+
+### Rootful Docker
+
+The same first-run commands without `DOCKER_CONTEXT`. Running Docker this way needs root or the `docker` group, which is root-equivalent. `./data` ends up owned by uid 1000 on the host (the container's `bun` user).
 
 ## // PAGES
 
 Static splash at `/docs/`. GitHub → Settings → Pages → `main` / `/docs`. The install buttons read a single `CLIENT_ID` constant in `docs/index.html`.
+
+The site links to a [privacy policy](https://jamiew.github.io/apocalypse-ews-discord/privacy.html) and [terms of use](https://jamiew.github.io/apocalypse-ews-discord/terms.html). Keep these pages current when data handling changes. The bot stores DM and mention text, commands, Discord IDs, and install details; unsubscribing does not delete old records.
 
 ## // REDEPLOY
 
@@ -121,15 +154,16 @@ $EDITOR .deploy.env                   # set host / user / path
 
 Configure once in `.deploy.env` (gitignored via the `.env.*` rule):
 
-| var               | required | default  | purpose                                |
-|-------------------|----------|----------|----------------------------------------|
-| `DEPLOY_HOST`     | yes      | —        | SSH host (e.g. `ews.example.com`)      |
-| `DEPLOY_USER`     | yes      | —        | SSH user                               |
-| `DEPLOY_PATH`     | yes      | —        | absolute path to the checkout on host  |
-| `DEPLOY_BRANCH`   | no       | `main`   | branch to deploy                       |
-| `DEPLOY_REMOTE`   | no       | `origin` | git remote to fetch from               |
-| `DEPLOY_SSH_PORT` | no       | `22`     | non-standard SSH port                  |
-| `DEPLOY_SSH_OPTS` | no       | —        | extra ssh flags (e.g. `-i <keyfile>`)  |
+| var                     | required | default  | purpose                                         |
+|-------------------------|----------|----------|-------------------------------------------------|
+| `DEPLOY_HOST`           | yes      | —        | SSH host (e.g. `ews.example.com`)               |
+| `DEPLOY_USER`           | yes      | —        | SSH user                                        |
+| `DEPLOY_PATH`           | yes      | —        | absolute path to the checkout on host           |
+| `DEPLOY_BRANCH`         | no       | `main`   | branch to deploy                                |
+| `DEPLOY_REMOTE`         | no       | `origin` | git remote to fetch from                        |
+| `DEPLOY_SSH_PORT`       | no       | `22`     | non-standard SSH port                           |
+| `DEPLOY_SSH_OPTS`       | no       | —        | extra ssh flags (e.g. `-i <keyfile>`)           |
+| `DEPLOY_DOCKER_CONTEXT` | no       | —        | remote docker context; `rootless` for rootless  |
 
 What it does, in one SSH session on the remote:
 
@@ -142,7 +176,7 @@ What it does, in one SSH session on the remote:
 
 Aborts on the remote if `.env` is missing (so the bot doesn't silently fail to boot post-deploy). Warns locally before SSHing if your `HEAD` differs from `${DEPLOY_REMOTE}/${DEPLOY_BRANCH}` — you deploy what's pushed, not your working copy.
 
-Stream the bot afterwards:
+Stream the bot afterwards (add `--context rootless` on a rootless host):
 
 ```bash
 ssh $DEPLOY_USER@$DEPLOY_HOST "cd $DEPLOY_PATH && docker compose logs -f bot"
@@ -157,10 +191,10 @@ Pull prod state (db + log) to your laptop for analysis or backup. Safe while the
 ./scripts/sync-from-prod.sh ./snap-1   # custom dest
 ```
 
-Uses the same `.deploy.env` as `deploy.sh`. The default destination matches the `data-*/` gitignore rule so synced data can't accidentally land in a commit. Inspect with:
+Uses the same `.deploy.env` as `deploy.sh`, including `DEPLOY_DOCKER_CONTEXT`. The snapshot runs inside the container as `bun`. The default destination matches the `data-*/` gitignore rule so synced data can't accidentally land in a commit. Inspect with:
 
 ```bash
-sqlite3 data-prod/ews.db 'SELECT kind, count(*) FROM events GROUP BY kind ORDER BY 2 DESC;'
+sqlite3 -readonly data-prod/ews.db 'SELECT kind, count(*) FROM events GROUP BY kind ORDER BY 2 DESC;'
 tail -f data-prod/ews.log | jq .
 ```
 

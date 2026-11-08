@@ -7,9 +7,12 @@
 #   docker compose run --rm register   # after editing slash command defs
 #   docker compose logs -f bot
 #
+# Rootless Docker (recommended): the same commands with `docker --context rootless`,
+# or `export DOCKER_CONTEXT=rootless` first. See README "Deploy".
+#
 # Persistent state (./data) is bind-mounted so an operator can inspect
 # the SQLite db and tail the JSON log directly from the host:
-#   sqlite3 data/ews.db 'SELECT * FROM events ORDER BY id DESC LIMIT 20;'
+#   sqlite3 -readonly data/ews.db 'SELECT * FROM events ORDER BY id DESC LIMIT 20;'
 #   tail -f data/ews.log | jq .
 
 # Shared lockdown: immutable root fs, no capabilities beyond what the entrypoint

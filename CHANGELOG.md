@@ -2,6 +2,11 @@
 
 ## 2026-11-08
 
+### Deploy
+
+- Rootless Docker documented as the recommended setup, with rootful Docker as the alternative and steps to move between them. `DEPLOY_DOCKER_CONTEXT` in `.deploy.env` points `deploy.sh` and `sync-from-prod.sh` at the right daemon on the remote.
+- Test fixtures use synthetic Discord names and IDs.
+
 ### Security
 
 - Dependencies bumped to latest: discord.js 14.28.1, zod 4.6.7, node-cron 4.6.0. Clears 17 `bun audit` advisories (7 high) in transitive `undici` <6.29.1 (TLS cert validation bypass, WebSocket / content-encoding DoS), `ws` <8.21.0 (fragment memory exhaustion), and `zod` <4.6.6 (oversized-collection memory exhaustion).

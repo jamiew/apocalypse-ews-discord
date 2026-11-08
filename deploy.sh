@@ -29,6 +29,8 @@ fi
 : "${DEPLOY_PATH:?set DEPLOY_PATH in .deploy.env or env}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 DEPLOY_REMOTE="${DEPLOY_REMOTE:-origin}"
+# Empty = the remote user's current docker context. Set to "rootless" for rootless Docker.
+DEPLOY_DOCKER_CONTEXT="${DEPLOY_DOCKER_CONTEXT:-}"
 
 ssh_args=()
 if [ -n "${DEPLOY_SSH_PORT:-}" ]; then
@@ -41,6 +43,7 @@ fi
 
 echo ">>> Deploy target: ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}"
 echo ">>> Branch:        ${DEPLOY_REMOTE}/${DEPLOY_BRANCH}"
+echo ">>> Docker:        ${DEPLOY_DOCKER_CONTEXT:-<remote default context>}"
 
 # Friendly nudge: warn if local HEAD differs from the deploy branch on the remote git server.
 # Skipped silently if not in a git repo or no upstream available.
@@ -60,6 +63,7 @@ ssh "${ssh_args[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
 	"DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH")" \
 	"DEPLOY_REMOTE=$(printf '%q' "$DEPLOY_REMOTE")" \
 	"DEPLOY_BRANCH=$(printf '%q' "$DEPLOY_BRANCH")" \
+	"DOCKER_CONTEXT=$(printf '%q' "$DEPLOY_DOCKER_CONTEXT")" \
 	'bash -s' <<'REMOTE'
 set -euo pipefail
 
@@ -99,4 +103,4 @@ docker compose logs --tail 30 bot || true
 REMOTE
 
 echo ">>> Deploy complete."
-echo ">>> Stream logs:  ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_PATH} && docker compose logs -f bot'"
+echo ">>> Stream logs:  ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_PATH} && docker ${DEPLOY_DOCKER_CONTEXT:+--context $DEPLOY_DOCKER_CONTEXT }compose logs -f bot'"

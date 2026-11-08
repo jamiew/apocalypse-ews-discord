@@ -25,6 +25,7 @@ export class OperatorWebhooks {
 	}
 
 	onLog(record: LogRecord): void {
+		if (record.level === "debug") return;
 		if (record.context?.["module"] === "webhooks" && record.context["destination"] === "error")
 			return;
 		const destination = record.level === "warn" || record.level === "error" ? "error" : "info";

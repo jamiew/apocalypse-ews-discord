@@ -44,7 +44,7 @@ export async function pollLevelOnce(args: {
 	});
 
 	if (prev.emergency_level == null) {
-		log.info("first observation — no announcement", { level: newLevel });
+		log.debug("first observation — no announcement", { level: newLevel });
 		return null;
 	}
 	if (prev.emergency_level === newLevel) return null;

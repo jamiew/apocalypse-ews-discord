@@ -87,9 +87,11 @@ Create two incoming webhooks in **Server Settings → Integrations → Webhooks*
 - `ERROR_WEBHOOK_URL`: all WARN/ERROR logs, including RSS alerts, level changes reaching 4–5, and poll/delivery failures. Lower-level changes go to INFO. Keep this channel unmuted.
 - These replace operator DMs. Remove `OPERATOR_USER_ID` and `DEV_ADMIN_USER_ID` from your configuration. Empty or unset URLs disable their stream without falling back to another destination. Subscriber alerts and commands are unchanged.
 
-Webhook routing receives all severities; `LOG_LEVEL` still controls local output. Messages suppress mentions and redact credentials and message bodies while retaining diagnostic metadata. Delivery is best-effort with a five-second timeout, no retries or replay. INFO-webhook failures notify the ERROR destination; ERROR-webhook failures stay in local logs to avoid loops. Shutdown drains pending deliveries. Check the INFO channel after deployment with a test install/uninstall and a restart.
+Webhooks use severity-colored Discord embeds with an event title, readable details, source, and timestamp. Local file logs remain JSON. Routing receives all severities; `LOG_LEVEL` still controls local output. Messages suppress mentions and redact credentials and message bodies. Delivery is best-effort with a five-second timeout, no retries or replay. INFO-webhook failures notify the ERROR destination; ERROR-webhook failures stay local to avoid loops. Shutdown drains pending deliveries. Check the INFO channel after deployment with a test install/uninstall and a restart.
 
 Rejected installs never reach the bot, and a stopped process cannot send warnings. App-verification blocks and full outages still need portal checks or external monitoring.
+
+Server installs and removals are stored as `guild_create` and `guild_delete` events. Installer IDs and names are best-effort: Discord requires **View Audit Log**, which the standard invite does not request. Server-owner details do not identify the installer. Account-only installations are not separately recorded; subsequent commands and subscriptions are logged.
 
 ## // DEPLOY
 
@@ -185,6 +187,8 @@ ssh $DEPLOY_USER@$DEPLOY_HOST "cd $DEPLOY_PATH && docker compose logs -f bot"
 ## // SYNC
 
 Pull prod state (db + log) to your laptop for analysis or backup. Safe while the bot is running — the db is snapshotted via `VACUUM INTO` inside the container before transfer, so the WAL stays consistent.
+
+This is a manual snapshot, not a scheduled or versioned backup. Reusing a destination replaces its previous database and log. The database includes install/removal events, subscriptions, and recorded activity; the text log is copied separately. Use this snapshot method when automating backups rather than copying live SQLite files with rsync alone.
 
 ```bash
 ./scripts/sync-from-prod.sh            # → ./data-prod/

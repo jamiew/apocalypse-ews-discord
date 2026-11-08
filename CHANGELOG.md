@@ -2,6 +2,10 @@
 
 ## 2026-11-08
 
+### Notifications
+
+- Operator webhooks now use severity-colored Discord embeds with readable details and timestamps instead of JSON blocks. Local logs stay structured, and credential/message-body redaction still applies.
+
 ### Website
 
 - Added dated, plain-English privacy and terms pages, linked from the homepage. The privacy policy explains message logging, stored Discord details, outside services, and how to request deletion.

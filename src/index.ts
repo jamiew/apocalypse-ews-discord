@@ -4,20 +4,25 @@ import { createClient, fanOutAlert, fanOutLevelChange } from "./discord.js";
 import { loadEnv } from "./env.js";
 import { sendHeartbeat } from "./heartbeat.js";
 import { pollLevelOnce } from "./level-poller.js";
-import { childLogger } from "./log.js";
+import { childLogger, setLogSink } from "./log.js";
 import { pollOnce } from "./poller.js";
 import { sendDueReminders } from "./reminders.js";
+import { OperatorWebhooks } from "./webhooks.js";
 
 const log = childLogger("boot");
+let webhooks: OperatorWebhooks | undefined;
 
 async function main() {
 	const env = loadEnv();
+	webhooks = new OperatorWebhooks({
+		infoUrl: env.INFO_WEBHOOK_URL,
+		errorUrl: env.ERROR_WEBHOOK_URL,
+		secrets: [env.DISCORD_TOKEN],
+	});
+	const notifications = webhooks;
+	setLogSink((record) => notifications.onLog(record));
 	const db = new DB(env.DATABASE_PATH);
-	const deps = {
-		db,
-		devAdminUserId: env.DEV_ADMIN_USER_ID,
-		operatorUserId: env.OPERATOR_USER_ID,
-	};
+	const deps = { db };
 	const client = createClient(deps);
 
 	await client.login(env.DISCORD_TOKEN);
@@ -39,7 +44,12 @@ async function main() {
 				url: env.EWS_RSS_URL,
 				onNewAlert: async (alert) => {
 					const result = await fanOutAlert(client, deps, alert);
-					pollLog.info("alert dispatched", { guid: alert.guid, ...result });
+					pollLog.warn("alert dispatched", {
+						guid: alert.guid,
+						title: alert.title,
+						link: alert.link,
+						...result,
+					});
 				},
 			});
 			if (fresh.length === 0) pollLog.debug("rss poll: no new items");
@@ -56,7 +66,7 @@ async function main() {
 				url: env.EWS_DASHBOARD_URL,
 				onLevelChange: async (c) => {
 					const result = await fanOutLevelChange(client, deps, c);
-					levelLog.info("level dispatched", {
+					levelLog[c.level >= 4 ? "warn" : "info"]("level dispatched", {
 						level: c.level,
 						prevLevel: c.prevLevel,
 						...result,
@@ -98,6 +108,8 @@ async function main() {
 		db.recordEvent({ kind: "shutdown", payload: { signal } });
 		await Promise.all([pollTask, levelTask, reminderTask, heartbeatTask].map((t) => t.stop()));
 		await client.destroy().catch(() => {});
+		await notifications.close();
+		setLogSink(undefined);
 		db.close();
 		process.exit(0);
 	};
@@ -105,7 +117,9 @@ async function main() {
 	process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
 	childLogger("boot").error("fatal", { err });
+	await webhooks?.close();
+	setLogSink(undefined);
 	process.exit(1);
 });

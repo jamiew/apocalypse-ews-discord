@@ -16,8 +16,9 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 - Slash commands `/subscribe [channel]` `/unsubscribe` `/status` `/help` — guild, DM, private-channel, user-install. In a guild, `/subscribe` and `/unsubscribe` require ManageGuild.
 - `@-mention` in a guild channel with the same words (ManageGuild for state changes).
 - DM the bot direct: same words, no mention needed.
+- No privileged intents required. DMs and direct @mentions work without Message Content Intent. The server invite requests only View Channels and Send Messages, not Administrator.
 - Annual reminder: "still subscribed. nothing has ended. go outside."
-- Operator (`OPERATOR_USER_ID`, falls back to `DEV_ADMIN_USER_ID`) DM'd on install / subscribe / unsubscribe.
+- Separate Discord webhooks for DEBUG/INFO activity (including install / uninstall) and WARN/ERROR notifications.
 
 ## // STACK
 
@@ -32,10 +33,26 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 
 ## // INITIALIZE
 
-1. <https://discord.com/developers/applications> → New App. Bot tab: Reset Token; enable **Message Content Intent**. App ID = `DISCORD_CLIENT_ID`.
+1. <https://discord.com/developers/applications> → New App. Bot tab: Reset Token; leave all **Privileged Gateway Intents** off. DMs and direct @mentions work without Message Content Intent. App ID = `DISCORD_CLIENT_ID`.
 2. Installation tab → enable **User Install** (so the bot installs to user accounts, not just guilds).
-3. `cp .env.example .env`, fill `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DEV_ADMIN_USER_ID`. Optional: `OPERATOR_USER_ID`, `TEST_GUILD_ID` (set in dev — instant command propagation).
+3. `cp .env.sample .env`, fill `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`. Optional: `INFO_WEBHOOK_URL`, `ERROR_WEBHOOK_URL`, `TEST_GUILD_ID` (set in dev for instant command propagation).
 4. Invite the bot to your test server **before** running `register-commands`. Guild-scoped registration requires the bot already in the guild.
+
+If an install says the bot cannot join more servers:
+
+- Open the app's **App Verification** tab in the [Developer Portal](https://discord.com/developers/applications). Discord requires [verification to grow past 100 servers](https://support-dev.discord.com/hc/en-us/articles/23926564536471-How-Do-I-Get-My-App-Verified); complete its checklist, including the owner's identity check if requested.
+- When upgrading from a version that requests Message Content Intent, deploy this version **before** turning that toggle off under **Bot → Privileged Gateway Intents**. Turning it off first can prevent the old bot from connecting. Leave Server Members and Presence off too.
+- Retry the server install, then check `/status`, a DM, and `@bot status`. Removing privileged intents does not remove the verification requirement. Alerts, slash commands, DMs, and direct @mentions need no privileged intents ([Discord's exceptions](https://docs.discord.com/developers/gateway/you-might-not-need-a-privileged-intent#exceptions-when-you-get-message-content-without-the-privileged-intent)).
+
+For an existing app moving to a Discord team:
+
+- Transfer the existing application to the team rather than creating a new bot. Keep its application ID, installed bot, and database so existing installs and subscriptions stay attached.
+- Publish the team's privacy policy and terms at public URLs, then set both URLs in the application's General Information. Link the same pages from the public site once they are available.
+- Complete the App Verification checklist as the team owner, including identity verification if requested. Verification and privileged-intent approval are separate. Keep Message Content, Server Members, and Presence off after verification too.
+
+If Message Content Intent is already disabled while the old build is running, deploy the non-privileged build now. The old build can fail its next gateway connection because it still requests that intent.
+
+The privacy policy must reflect actual storage: subscriber IDs and status, server/channel/user metadata, command activity, and DM/direct-mention text are stored in SQLite and local logs. Webhook copies omit message bodies and credentials, but retain diagnostic metadata. Unsubscribing changes subscription status; it does not delete past records. There is no automatic retention or deletion schedule in this code. State the team's actual retention policy and contact/deletion process rather than promising automatic erasure.
 
 ## // RUN
 
@@ -55,6 +72,8 @@ bun run ci   # biome ci . && tsc --noEmit && bun test src
 
 Single command, same one CI runs. ~100 tests under `bun:test`, in-memory sqlite, co-located beside the file under test.
 
+Releases use matching package versions, Git tags, and [GitHub Releases](https://github.com/jamiew/apocalypse-ews-discord/releases), not npm publishing (`private: true`). Before tagging a release, run `bun run ci`, verify a deployed install plus slash/DM/@mention commands, and include any required environment migration in the release notes. Team transfer and verification do not themselves require a new bot version.
+
 ## // OBSERVE
 
 ```bash
@@ -62,12 +81,22 @@ tail -f data/ews.log | jq .
 sqlite3 data/ews.db 'SELECT ts, kind, payload FROM events ORDER BY id DESC LIMIT 20;'
 ```
 
+Create two incoming webhooks in **Server Settings → Integrations → Webhooks**, choosing a different channel for each. Save their URLs in the deployment's `.env`, then rebuild/restart the bot. Keep the URLs private.
+
+- `INFO_WEBHOOK_URL`: all DEBUG/INFO logs, including separate install/uninstall messages, subscriptions, startup/shutdown, routine polls, and heartbeat status.
+- `ERROR_WEBHOOK_URL`: all WARN/ERROR logs, including RSS alerts, level changes reaching 4–5, and poll/delivery failures. Lower-level changes go to INFO. Keep this channel unmuted.
+- These replace operator DMs. Remove `OPERATOR_USER_ID` and `DEV_ADMIN_USER_ID` from your configuration. Empty or unset URLs disable their stream without falling back to another destination. Subscriber alerts and commands are unchanged.
+
+Webhook routing receives all severities; `LOG_LEVEL` still controls local output. Messages suppress mentions and redact credentials and message bodies while retaining diagnostic metadata. Delivery is best-effort with a five-second timeout, no retries or replay. INFO-webhook failures notify the ERROR destination; ERROR-webhook failures stay in local logs to avoid loops. Shutdown drains pending deliveries. Check the INFO channel after deployment with a test install/uninstall and a restart.
+
+Rejected installs never reach the bot, and a stopped process cannot send warnings. App-verification blocks and full outages still need portal checks or external monitoring.
+
 ## // DEPLOY
 
 First-time, on the host:
 
 ```bash
-cp .env.example .env && $EDITOR .env
+cp .env.sample .env && $EDITOR .env
 mkdir -p data
 docker compose up -d --build
 docker compose run --rm register   # after editing slash command defs

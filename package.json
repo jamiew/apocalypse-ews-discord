@@ -2,7 +2,7 @@
 	"name": "apocalypse-ews-bot",
 	"version": "0.2.0",
 	"private": true,
-	"description": "Apocalypse EWS // Discord bot. Tracked-aircraft anomalies, rolling 24h. Level 5 → announced. Otherwise silent.",
+	"description": "Apocalypse EWS // Discord bot. Tracked-aircraft anomalies, rolling 24h. Every emergency-level transition announced.",
 	"type": "module",
 	"main": "src/index.ts",
 	"scripts": {

@@ -5,10 +5,20 @@
 ### Security
 
 - Dependencies bumped to latest: discord.js 14.28.1, zod 4.6.7, node-cron 4.6.0. Clears 17 `bun audit` advisories (7 high) in transitive `undici` <6.29.1 (TLS cert validation bypass, WebSocket / content-encoding DoS), `ws` <8.21.0 (fragment memory exhaustion), and `zod` <4.6.6 (oversized-collection memory exhaustion).
+- `/subscribe` and `/unsubscribe` now check ManageGuild in the handler for guild channels. Previously only the command's `default_member_permissions` gated them, which server admins can widen and user-installed invocations don't carry — any member could re-route or silence a server's alerts. The @-mention path already checked.
+- Client-wide `allowedMentions: { parse: [] }`. Upstream feed text relayed to every subscriber can no longer ping users, roles, or @everyone.
+- Upstream fields clipped (256 chars, links 512) and backticks neutralised inside the level-change code fence. An oversized title previously failed every send for an alert already marked seen, dropping it for good.
+- RSS and dashboard fetches go through `fetchTextCapped` (15s timeout, 16 MiB body cap). rss-parser now parses a string instead of fetching itself.
+- Operator DMs escape markdown (incl. masked links) in guild, channel, and user names.
+- Container runs as the unprivileged `bun` user. The entrypoint chowns `./data` (root-owned from earlier deploys) on start, then drops privileges; on the host, `./data` ends up owned by uid 1000. Compose adds `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` (+ CHOWN/SETUID/SETGID for the entrypoint), `no-new-privileges`. `scripts/sync-from-prod.sh` execs as `bun` to match.
+- `.dockerignore` keeps `.env*`, `data*/`, and `.git` out of the build context.
+- CI actions pinned to commit SHAs, checkout without persisted credentials, bun pinned to 1.4.4.
+- `deploy.sh` and `sync-from-prod.sh` shell-quote `DEPLOY_PATH` / branch / remote for the remote shell.
 
 ### Tooling
 
 - Biome 2.6.6 (config migrated: `recommended: true` → `preset: "recommended"`), TypeScript 7.0.2, `@types/bun` 1.4.4.
+- Removed stale `/dev-fire` references from `README.md` and `.env.example`.
 
 ## 2026-10-25
 

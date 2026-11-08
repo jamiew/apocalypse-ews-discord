@@ -13,12 +13,11 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 
 - Polls the upstream RSS (`/rss.xml`, level-5 incidents) and the upstream dashboard JSON (`current.emergencyLevel` 1..5) every 30 min.
 - Announces every level transition. `Notice → ELEVATED → WARNING → ATTENTION` rising; `Stand-down` falling.
-- Slash commands `/subscribe [channel]` `/unsubscribe` `/status` `/help` — guild, DM, private-channel, user-install.
+- Slash commands `/subscribe [channel]` `/unsubscribe` `/status` `/help` — guild, DM, private-channel, user-install. In a guild, `/subscribe` and `/unsubscribe` require ManageGuild.
 - `@-mention` in a guild channel with the same words (ManageGuild for state changes).
 - DM the bot direct: same words, no mention needed.
 - Annual reminder: "still subscribed. nothing has ended. go outside."
 - Operator (`OPERATOR_USER_ID`, falls back to `DEV_ADMIN_USER_ID`) DM'd on install / subscribe / unsubscribe.
-- Hidden `/dev-fire` (gated by `DEV_ADMIN_USER_ID`) synthesizes a level 5 for testing.
 
 ## // STACK
 

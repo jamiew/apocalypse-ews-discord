@@ -5,6 +5,7 @@ import {
 	type ChatInputCommandInteraction,
 	Client,
 	Events,
+	escapeMarkdown,
 	GatewayIntentBits,
 	type Guild,
 	InteractionContextType,
@@ -12,6 +13,7 @@ import {
 	MessageFlags,
 	Partials,
 	PermissionFlagsBits,
+	type PermissionsBitField,
 	REST,
 	Routes,
 	SlashCommandBuilder,
@@ -241,6 +243,8 @@ export function createClient(deps: BotDeps): Client {
 		],
 		// Required so messageCreate fires for DM channels not yet cached.
 		partials: [Partials.Channel, Partials.Message],
+		// Outbound text carries upstream feed content; never let it ping users, roles, or @everyone.
+		allowedMentions: { parse: [] },
 	});
 
 	client.once(Events.ClientReady, (c) => {
@@ -536,12 +540,29 @@ async function handleCommand(
 	}
 }
 
+// Guild-channel subscribe/unsubscribe requires ManageGuild on every surface. The slash
+// commands' default_member_permissions is only a default — admins can widen it per server,
+// and user-installed commands carry no server permission gate — so the handler enforces it.
+export function canManageGuildSubscriptions(perms: Readonly<PermissionsBitField> | null): boolean {
+	return perms?.has(PermissionFlagsBits.ManageGuild) === true;
+}
+
+async function requireManageGuild(interaction: ChatInputCommandInteraction): Promise<boolean> {
+	if (canManageGuildSubscriptions(interaction.memberPermissions)) return true;
+	await interaction.reply({
+		content: MENTION_INSUFFICIENT_PRIVILEGES,
+		flags: MessageFlags.Ephemeral,
+	});
+	return false;
+}
+
 async function cmdSubscribe(
 	interaction: ChatInputCommandInteraction,
 	deps: BotDeps,
 	client: Client,
 ): Promise<void> {
 	if (interaction.guildId) {
+		if (!(await requireManageGuild(interaction))) return;
 		const target = interaction.options.getChannel("channel") ?? interaction.channel;
 		if (!target || !("id" in target)) {
 			await interaction.reply({
@@ -606,6 +627,7 @@ async function cmdUnsubscribe(
 	client: Client,
 ): Promise<void> {
 	if (interaction.guildId) {
+		if (!(await requireManageGuild(interaction))) return;
 		if (!interaction.channelId) return;
 		const removed = deps.db.markUnsubscribed("guild_channel", interaction.channelId);
 		if (removed) {
@@ -808,7 +830,7 @@ async function handleMention(
 
 	if (intent === "subscribe" || intent === "unsubscribe") {
 		// message.member can be null in uncached cases — treat as no permission.
-		const hasPerm = message.member?.permissions.has(PermissionFlagsBits.ManageGuild) === true;
+		const hasPerm = canManageGuildSubscriptions(message.member?.permissions ?? null);
 		if (!hasPerm) {
 			await reply(MENTION_INSUFFICIENT_PRIVILEGES);
 			return;
@@ -967,18 +989,28 @@ export function formatOperatorDm(args: {
 }): string {
 	const lines = [args.header];
 	if (args.guildId) {
-		lines.push(`• guild: ${args.guildName ? `"${args.guildName}" ` : ""}(${args.guildId})`);
+		lines.push(
+			`• guild: ${args.guildName ? `"${literal(args.guildName)}" ` : ""}(${args.guildId})`,
+		);
 	}
 	if (args.channelId) {
-		lines.push(`• channel: ${args.channelName ? `#${args.channelName} ` : ""}(${args.channelId})`);
+		lines.push(
+			`• channel: ${args.channelName ? `#${literal(args.channelName)} ` : ""}(${args.channelId})`,
+		);
 	}
 	if (args.userId) {
-		lines.push(`• user: ${args.userTag ? `${args.userTag} ` : ""}(${args.userId})`);
+		lines.push(`• user: ${args.userTag ? `${literal(args.userTag)} ` : ""}(${args.userId})`);
 	}
 	for (const e of args.extras ?? []) {
-		lines.push(`• ${e.label}: ${e.value}`);
+		lines.push(`• ${e.label}: ${literal(e.value)}`);
 	}
 	return lines.join("\n");
+}
+
+// Guild, channel, and user names are chosen by strangers; render them literally,
+// including masked links (off by default in escapeMarkdown).
+function literal(text: string): string {
+	return escapeMarkdown(text, { maskedLink: true });
 }
 
 function subscribeHeader(args: AnnounceArgs & { reactivated: boolean }): string {

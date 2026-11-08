@@ -12,8 +12,20 @@
 #   sqlite3 data/ews.db 'SELECT * FROM events ORDER BY id DESC LIMIT 20;'
 #   tail -f data/ews.log | jq .
 
+# Shared lockdown: immutable root fs, no capabilities beyond what the entrypoint
+# needs to chown ./data and drop to the `bun` user, no privilege re-escalation.
+x-hardening: &hardening
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: [ALL]
+  cap_add: [CHOWN, SETUID, SETGID]
+  security_opt:
+    - no-new-privileges:true
+
 services:
   bot:
+    <<: *hardening
     build: .
     image: apocalypse-ews-bot:local
     container_name: apocalypse-ews-bot
@@ -35,6 +47,7 @@ services:
   # any change to commandDefinitions in src/discord.ts. Profiled so a
   # plain `docker compose up` doesn't trigger it.
   register:
+    <<: *hardening
     build: .
     image: apocalypse-ews-bot:local
     profiles: [tools]

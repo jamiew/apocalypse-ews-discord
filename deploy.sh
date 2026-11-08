@@ -55,10 +55,11 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
 	fi
 fi
 
+# ssh joins argv into one remote shell string; %q keeps each value a single word.
 ssh "${ssh_args[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-	DEPLOY_PATH="$DEPLOY_PATH" \
-	DEPLOY_REMOTE="$DEPLOY_REMOTE" \
-	DEPLOY_BRANCH="$DEPLOY_BRANCH" \
+	"DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH")" \
+	"DEPLOY_REMOTE=$(printf '%q' "$DEPLOY_REMOTE")" \
+	"DEPLOY_BRANCH=$(printf '%q' "$DEPLOY_BRANCH")" \
 	'bash -s' <<'REMOTE'
 set -euo pipefail
 

@@ -4,8 +4,10 @@ import {
 	ChannelType,
 	InteractionContextType,
 	PermissionFlagsBits,
+	PermissionsBitField,
 } from "discord.js";
 import {
+	canManageGuildSubscriptions,
 	classifyDmText,
 	classifyMentionText,
 	classifyWelcomeError,
@@ -186,6 +188,42 @@ describe("formatOperatorDm", () => {
 				extras: [{ label: "members", value: "5" }],
 			}),
 		).toBe(["INSTALL", '• guild: "Seatoncode" (1141722997384814692)', "• members: 5"].join("\n"));
+	});
+
+	it("escapes markdown in stranger-controlled names", () => {
+		expect(
+			formatOperatorDm({
+				header: "INSTALL",
+				guildId: "1",
+				guildName: "**[click](https://evil.example)**",
+				userId: "3",
+				userTag: "a_b_",
+			}),
+		).toBe(
+			[
+				"INSTALL",
+				'• guild: "\\*\\*\\[click](https://evil.example)\\*\\*" (1)',
+				"• user: a\\_b\\_ (3)",
+			].join("\n"),
+		);
+	});
+});
+
+describe("canManageGuildSubscriptions", () => {
+	it("allows ManageGuild and Administrator", () => {
+		expect(
+			canManageGuildSubscriptions(new PermissionsBitField(PermissionFlagsBits.ManageGuild)),
+		).toBe(true);
+		expect(
+			canManageGuildSubscriptions(new PermissionsBitField(PermissionFlagsBits.Administrator)),
+		).toBe(true);
+	});
+
+	it("denies members without ManageGuild and unknown permissions", () => {
+		expect(
+			canManageGuildSubscriptions(new PermissionsBitField(PermissionFlagsBits.SendMessages)),
+		).toBe(false);
+		expect(canManageGuildSubscriptions(null)).toBe(false);
 	});
 });
 

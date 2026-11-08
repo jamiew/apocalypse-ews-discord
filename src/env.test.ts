@@ -5,7 +5,7 @@ describe("loadEnv", () => {
 	const original = process.env;
 
 	beforeEach(() => {
-		process.env = { ...original };
+		process.env = { NODE_ENV: "test" };
 	});
 
 	afterEach(() => {
@@ -53,5 +53,30 @@ describe("loadEnv", () => {
 		process.env["DISCORD_CLIENT_ID"] = "cid";
 		process.env["EWS_RSS_URL"] = "not-a-url";
 		expect(() => loadEnv()).toThrow(/EWS_RSS_URL/);
+	});
+
+	it.each(["INFO_WEBHOOK_URL", "ERROR_WEBHOOK_URL"] as const)(
+		"accepts Discord URLs and empty opt-out for %s",
+		(key) => {
+			process.env["DISCORD_TOKEN"] = "tok";
+			process.env["DISCORD_CLIENT_ID"] = "cid";
+			process.env[key] = "https://discord.com/api/webhooks/123/test-token";
+			expect(loadEnv()[key]).toBe(process.env[key]);
+			process.env[key] = "";
+			expect(loadEnv()[key]).toBeUndefined();
+		},
+	);
+
+	it.each([
+		"http://discord.com/api/webhooks/123/test-token",
+		"https://example.com/api/webhooks/123/test-token",
+		"https://discord.com/channels/123/456",
+		"https://discord.com/api/webhooks/123/test-token?redirect=other",
+	])("rejects unsafe or non-webhook URLs without exposing credentials: %s", (url) => {
+		process.env["DISCORD_TOKEN"] = "tok";
+		process.env["DISCORD_CLIENT_ID"] = "cid";
+		process.env["ERROR_WEBHOOK_URL"] = url;
+		expect(() => loadEnv()).toThrow("ERROR_WEBHOOK_URL: Must be a Discord incoming webhook URL");
+		expect(() => loadEnv()).not.toThrow("test-token");
 	});
 });

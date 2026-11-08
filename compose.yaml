@@ -1,7 +1,7 @@
 # Docker Compose for the Apocalypse EWS Discord bot.
 #
 # Quickstart:
-#   cp .env.example .env && $EDITOR .env
+#   cp .env.sample .env && $EDITOR .env
 #   mkdir -p data
 #   docker compose up -d --build
 #   docker compose run --rm register   # after editing slash command defs

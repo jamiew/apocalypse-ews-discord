@@ -1,11 +1,20 @@
 import { z } from "zod";
 
+const webhookUrl = z
+	.string()
+	.regex(
+		/^https:\/\/(?:(?:canary|ptb)\.)?discord\.com\/api(?:\/v\d+)?\/webhooks\/\d+\/[\w.-]+$/,
+		"Must be a Discord incoming webhook URL",
+	)
+	.or(z.literal(""))
+	.optional()
+	.transform((value) => value || undefined);
+
 const schema = z.object({
 	DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
 	DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
-	DEV_ADMIN_USER_ID: z.string().optional(),
-	// Falls back to DEV_ADMIN_USER_ID when unset.
-	OPERATOR_USER_ID: z.string().optional(),
+	INFO_WEBHOOK_URL: webhookUrl,
+	ERROR_WEBHOOK_URL: webhookUrl,
 	// Set for instant slash-command propagation in dev; unset = global (~1h).
 	TEST_GUILD_ID: z.string().optional(),
 	DATABASE_PATH: z.string().default("./data/ews.db"),

@@ -131,19 +131,19 @@ describe("formatOperatorDm", () => {
 		expect(
 			formatOperatorDm({
 				header: "SUBSCRIBE guild_channel via command",
-				guildId: "161104042146267136",
-				guildName: "GuruCaudio",
-				channelId: "1501353142863003708",
+				guildId: "100000000000000001",
+				guildName: "Example Guild",
+				channelId: "100000000000000002",
 				channelName: "alerts",
-				userId: "160928089549832192",
-				userTag: "blazer0d",
+				userId: "100000000000000003",
+				userTag: "example-user",
 			}),
 		).toBe(
 			[
 				"SUBSCRIBE guild_channel via command",
-				'• guild: "GuruCaudio" (161104042146267136)',
-				"• channel: #alerts (1501353142863003708)",
-				"• user: blazer0d (160928089549832192)",
+				'• guild: "Example Guild" (100000000000000001)',
+				"• channel: #alerts (100000000000000002)",
+				"• user: example-user (100000000000000003)",
 			].join("\n"),
 		);
 	});
@@ -183,11 +183,13 @@ describe("formatOperatorDm", () => {
 		expect(
 			formatOperatorDm({
 				header: "INSTALL",
-				guildId: "1141722997384814692",
-				guildName: "Seatoncode",
+				guildId: "100000000000000004",
+				guildName: "Other Example Guild",
 				extras: [{ label: "members", value: "5" }],
 			}),
-		).toBe(["INSTALL", '• guild: "Seatoncode" (1141722997384814692)', "• members: 5"].join("\n"));
+		).toBe(
+			["INSTALL", '• guild: "Other Example Guild" (100000000000000004)', "• members: 5"].join("\n"),
+		);
 	});
 
 	it("escapes markdown in stranger-controlled names", () => {

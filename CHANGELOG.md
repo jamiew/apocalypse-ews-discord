@@ -2,6 +2,15 @@
 
 ## 2026-11-08
 
+### Website
+
+- Added dated, plain-English privacy and terms pages, linked from the homepage. The privacy policy explains message logging, stored Discord details, outside services, and how to request deletion.
+
+### Deploy
+
+- Rootless Docker documented as the recommended setup, with rootful Docker as the alternative and steps to move between them. `DEPLOY_DOCKER_CONTEXT` in `.deploy.env` points `deploy.sh` and `sync-from-prod.sh` at the right daemon on the remote.
+- Test fixtures use synthetic Discord names and IDs.
+
 ### Security
 
 - Removed the unnecessary Message Content gateway intent. DMs and direct @mentions retain access to their content without privileged approval. Setup now documents safe toggle removal and the separate app-verification requirement for growing past 100 servers.

@@ -10,6 +10,7 @@
 # Config is read from .deploy.env (same file deploy.sh uses):
 #   DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH         required
 #   DEPLOY_SSH_PORT, DEPLOY_SSH_OPTS              optional
+#   DEPLOY_DOCKER_CONTEXT                         optional ("rootless" for rootless Docker)
 #
 # Override the destination via positional arg or DEST env (default ./data-prod).
 # The default matches the data-*/ gitignore pattern, so synced data won't
@@ -69,7 +70,7 @@ echo
 echo ">>> Snapshotting ews.db inside bot container..."
 # Quoted for the remote shell; exec as the same unprivileged user that owns /app/data.
 remote_cd="cd $(printf '%q' "$DEPLOY_PATH")"
-in_bot="docker compose exec -T --user bun bot"
+in_bot="DOCKER_CONTEXT=$(printf '%q' "${DEPLOY_DOCKER_CONTEXT:-}") docker compose exec -T --user bun bot"
 # Clear any stale snapshot dir.
 ssh "${ssh_args[@]}" "$SSH_TARGET" "$remote_cd && $in_bot rm -rf /app/data/.sync"
 # Pipe a tiny `VACUUM INTO` script through ssh into the bot container, write

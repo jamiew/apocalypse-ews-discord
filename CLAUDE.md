@@ -68,7 +68,10 @@ discord.js interactions are already typed. SQLite rows are typed via `query<Resu
 
 - **Bun.** Runtime, package manager, test runner, script runner. No pnpm, no node, no tsx, no vitest.
 - **Biome 2.6:** tabs, line width 100. Strict rules: `noNonNullAssertion`, `useImportType`, `noExplicitAny`, `noUnusedVariables`, `noUnusedImports` all `error`. `useLiteralKeys` is `off` (collides with TS `noPropertyAccessFromIndexSignature`).
-- **TypeScript strict** + `noUncheckedIndexedAccess` + `noImplicitOverride` + `noImplicitReturns` + `noFallthroughCasesInSwitch` + `noPropertyAccessFromIndexSignature` + `exactOptionalPropertyTypes`. `tsconfig.json` carries `types: ["bun"]` to pull in bun-types for `bun:*` modules.
+  - Also `error`: `noFloatingPromises` + `noMisusedPromises` (type-aware; `void` a promise only when fire-and-forget is intended), `useExhaustiveSwitchCases`, `noConsole` (use `log.ts`), `noProcessEnv` (use `env.ts`; off only in `env.ts`, `log.ts`, tests), `useAwait` (off in tests), `noShadow`, `noImportCycles`, `noUnusedFunctionParameters`, `noUndeclaredDependencies`, `useThrowOnlyError`, `useErrorMessage`, `noEvolvingTypes`.
+- **TypeScript strict** + `noUncheckedIndexedAccess` + `noImplicitOverride` + `noImplicitReturns` + `noFallthroughCasesInSwitch` + `noPropertyAccessFromIndexSignature` + `exactOptionalPropertyTypes` + `verbatimModuleSyntax` + `erasableSyntaxOnly` (no enums / namespaces / parameter properties) + `noUncheckedSideEffectImports` + `allowUnreachableCode: false`. `tsconfig.json` carries `types: ["bun"]` to pull in bun-types for `bun:*` modules.
+- **Narrow, don't cast.** `"key" in obj` narrows `unknown` objects since TS 4.9; reach for `as` only when the compiler can't follow.
+- **Dependabot** (`.github/dependabot.yml`): weekly grouped bun / actions / docker bumps. Security PRs open immediately. `.github/workflows/audit.yml` runs `bun audit --audit-level=high` daily. Bun version lives in three places — `Dockerfile`, `ci.yml`, `audit.yml` — bump together.
 - **`bun:test`.** In-memory SQLite for db tests, fake client object for the dispatch tests.
 
 **PRE-COMMIT:** `bun run ci` (== `biome ci . && tsc --noEmit && bun test src`). All three green. No "fix lint" follow-ups.

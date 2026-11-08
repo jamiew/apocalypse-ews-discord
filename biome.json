@@ -29,17 +29,42 @@
 			"complexity": {
 				"useLiteralKeys": "off"
 			},
+			"nursery": {
+				"noFloatingPromises": "error",
+				"noMisusedPromises": "error",
+				"useExhaustiveSwitchCases": "error"
+			},
 			"style": {
 				"noNonNullAssertion": "error",
-				"useImportType": "error"
+				"useImportType": "error",
+				"noProcessEnv": "error",
+				"useThrowOnlyError": "error"
 			},
 			"suspicious": {
-				"noExplicitAny": "error"
+				"noExplicitAny": "error",
+				"noConsole": "error",
+				"noEvolvingTypes": "error",
+				"noImportCycles": "error",
+				"noShadow": "error",
+				"useAwait": "error",
+				"useErrorMessage": "error"
 			},
 			"correctness": {
 				"noUnusedVariables": "error",
-				"noUnusedImports": "error"
+				"noUnusedImports": "error",
+				"noUnusedFunctionParameters": "error",
+				"noUndeclaredDependencies": "error"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["src/env.ts", "src/log.ts", "src/**/*.test.ts"],
+			"linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+		},
+		{
+			"includes": ["src/**/*.test.ts"],
+			"linter": { "rules": { "suspicious": { "useAwait": "off" } } }
+		}
+	]
 }

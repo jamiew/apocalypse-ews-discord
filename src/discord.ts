@@ -479,12 +479,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 }
 
 export function classifyWelcomeError(err: unknown): "missing_access" | "other" {
-	if (
-		err != null &&
-		typeof err === "object" &&
-		"code" in err &&
-		(err as { code?: unknown }).code === 50001
-	) {
+	if (err != null && typeof err === "object" && "code" in err && err.code === 50001) {
 		return "missing_access";
 	}
 	return "other";
@@ -1106,6 +1101,6 @@ function isSendable(channel: unknown): channel is TextBasedChannel & {
 		typeof channel === "object" &&
 		channel !== null &&
 		"send" in channel &&
-		typeof (channel as { send: unknown }).send === "function"
+		typeof channel.send === "function"
 	);
 }

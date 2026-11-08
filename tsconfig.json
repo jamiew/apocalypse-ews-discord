@@ -18,7 +18,11 @@
 		"resolveJsonModule": true,
 		"forceConsistentCasingInFileNames": true,
 		"noEmit": true,
-		"verbatimModuleSyntax": false,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"noUncheckedSideEffectImports": true,
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
 		"allowImportingTsExtensions": true
 	},
 	"include": ["src/**/*.ts"]

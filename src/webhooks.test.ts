@@ -60,15 +60,15 @@ describe("OperatorWebhooks", () => {
 		await server.stop(true);
 	});
 
-	it.each<[LogRecord["level"], string]>([
-		["debug", "/info"],
-		["info", "/info"],
-		["warn", "/error"],
-		["error", "/error"],
-	])("routes %s to %s", async (level, path) => {
+	it.each<[LogRecord["level"], string[]]>([
+		["debug", []],
+		["info", ["/info"]],
+		["warn", ["/error"]],
+		["error", ["/error"]],
+	])("applies the webhook threshold to %s", async (level, destinations) => {
 		childLogger("smoke")[level]("notification");
 		await webhooks.flush();
-		expect(requests.map((request) => request.path)).toEqual([path]);
+		expect(requests.map((request) => request.path)).toEqual(destinations);
 	});
 
 	it.each([

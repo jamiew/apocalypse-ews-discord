@@ -30,7 +30,7 @@ src/copy.ts           VOICE — every user-facing string
 src/env.ts            CONFIG — zod-validated env
 src/log.ts            TELEMETRY — zero-dep stdout + ./data/ews.log
 src/http.ts           INGEST — fetchTextCapped: timeout + byte cap for every upstream fetch
-src/webhooks.ts       NOTIFY — Discord DEBUG/INFO and WARN/ERROR destinations
+src/webhooks.ts       NOTIFY — Discord INFO and WARN/ERROR destinations; no DEBUG
 migrations/  0001 subscribers + seen_alerts · 0002 events · 0003 level_state
 ```
 
@@ -108,7 +108,7 @@ Two streams. Both matter.
 
 3am-grep → `log`. Historical query → `events`. Most user-facing actions deserve both.
 
-Operator notifications use `INFO_WEBHOOK_URL` for DEBUG/INFO and `ERROR_WEBHOOK_URL` for WARN/ERROR. Configure the log sink in `index.ts`; do not send operator DMs. Installs/uninstalls and routine status stay at INFO. RSS alerts and level changes reaching 4–5 use WARN. INFO-webhook failures go to ERROR, while ERROR-webhook failures stay local to avoid recursion. Delivery is best-effort; shutdown drains pending sends. `.env.sample` is the secret-free configuration template.
+Operator notifications use `INFO_WEBHOOK_URL` for INFO and `ERROR_WEBHOOK_URL` for WARN/ERROR. DEBUG never reaches webhooks, even with `LOG_LEVEL=debug`. Keep installs/uninstalls, startup/shutdown, and real level changes visible. Commands, DMs, mentions, subscriptions, unchanged polls, and routine heartbeat/reminder activity use DEBUG; durable SQLite events remain unchanged. Configure the log sink in `index.ts`; do not send operator DMs. RSS alerts and level changes reaching 4–5 use WARN. INFO-webhook failures go to ERROR, while ERROR-webhook failures stay local to avoid recursion. Delivery is best-effort; shutdown drains pending sends. `.env.sample` is the secret-free configuration template.
 
 ## // TEST CONVENTIONS
 

@@ -245,7 +245,7 @@ export function createClient(deps: BotDeps): Client {
 	});
 
 	client.once(Events.ClientReady, (c) => {
-		log.info("logged in", { tag: c.user.tag, id: c.user.id });
+		log.debug("logged in", { tag: c.user.tag, id: c.user.id });
 	});
 
 	client.on(Events.GuildCreate, (guild) => {
@@ -437,7 +437,7 @@ async function handleCommand(
 			options: interaction.options.data.map((o) => ({ name: o.name, value: o.value })),
 		},
 	});
-	log.info("slash command", {
+	log.debug("slash command", {
 		name: interaction.commandName,
 		scope: interaction.guildId ? "guild" : "dm",
 		guildId: interaction.guildId,
@@ -607,7 +607,7 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 		userId,
 		payload: { content: message.content, intent },
 	});
-	log.info("dm in", {
+	log.debug("dm in", {
 		userId,
 		userTag: message.author.tag,
 		intent,
@@ -617,7 +617,7 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 	const reply = async (content: string) => {
 		await message.reply(content);
 		deps.db.recordEvent({ kind: "dm_out", userId, payload: { content } });
-		log.info("dm out", { userId, userTag: message.author.tag, content });
+		log.debug("dm out", { userId, userTag: message.author.tag, content });
 	};
 
 	if (intent === "subscribe") {
@@ -706,7 +706,7 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 		userId,
 		payload: { content: message.content, stripped, intent },
 	});
-	log.info("mention in", {
+	log.debug("mention in", {
 		guildId,
 		guildName: message.guild?.name,
 		channelId,
@@ -720,7 +720,7 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 	const reply = async (content: string) => {
 		await message.reply(content);
 		deps.db.recordEvent({ kind: "mention_out", guildId, channelId, userId, payload: { content } });
-		log.info("mention out", { guildId, channelId, userId, content });
+		log.debug("mention out", { guildId, channelId, userId, content });
 	};
 
 	if (intent === "help") {
@@ -882,7 +882,7 @@ function announceSubscribe(deps: BotDeps, args: AnnounceArgs & { reactivated: bo
 		userId: args.userId,
 		payload: { kind: args.kind, via: args.via, reactivated: args.reactivated },
 	});
-	log.info("subscribe", {
+	log.debug("subscribe", {
 		kind: args.kind,
 		via: args.via,
 		reactivated: args.reactivated,
@@ -903,7 +903,7 @@ function announceUnsubscribe(deps: BotDeps, args: AnnounceArgs): void {
 		userId: args.userId,
 		payload: { kind: args.kind, via: args.via },
 	});
-	log.info("unsubscribe", {
+	log.debug("unsubscribe", {
 		kind: args.kind,
 		via: args.via,
 		guildId: args.guildId,

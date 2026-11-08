@@ -1,14 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
-import * as RSSParserModule from "rss-parser";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { DB } from "./db.js";
 import { pollOnce } from "./poller.js";
 
-const SAMPLE_FEED = (
-	items: Array<{ guid?: string; title: string; link: string; pubDate: string }>,
-) => ({
-	title: "Apocalypse Early Warning System",
-	items: items.map((i) => ({ ...i, isoDate: undefined })),
-});
+const ORIGINAL_FETCH = globalThis.fetch;
+
+function serveFeed(items: Array<{ guid?: string; title: string; link: string; pubDate: string }>) {
+	const xml = [
+		'<?xml version="1.0"?><rss version="2.0"><channel><title>Apocalypse Early Warning System</title>',
+		...items.map(
+			(i) =>
+				`<item>${i.guid ? `<guid>${i.guid}</guid>` : ""}<title>${i.title}</title><link>${i.link}</link><pubDate>${i.pubDate}</pubDate></item>`,
+		),
+		"</channel></rss>",
+	].join("");
+	globalThis.fetch = (async () => new Response(xml)) as unknown as typeof fetch;
+}
 
 describe("pollOnce", () => {
 	let db: DB;
@@ -19,7 +25,7 @@ describe("pollOnce", () => {
 
 	afterEach(() => {
 		db.close();
-		mock.restore();
+		globalThis.fetch = ORIGINAL_FETCH;
 	});
 
 	it("emits new items once and skips them on the next poll", async () => {
@@ -29,9 +35,7 @@ describe("pollOnce", () => {
 			link: "https://example.com/alert/1",
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
-		const spy = spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
-			SAMPLE_FEED([item]) as never,
-		);
+		serveFeed([item]);
 
 		const seen: string[] = [];
 		const first = await pollOnce({
@@ -49,8 +53,6 @@ describe("pollOnce", () => {
 		});
 		expect(second).toHaveLength(0);
 		expect(seen).toEqual([item.guid]);
-
-		spy.mockRestore();
 	});
 
 	it("dispatches multiple new items oldest-first", async () => {
@@ -67,9 +69,7 @@ describe("pollOnce", () => {
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
 		// RSS feeds list newest-first; poller should deliver oldest-first.
-		spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
-			SAMPLE_FEED([newer, older]) as never,
-		);
+		serveFeed([newer, older]);
 
 		const seen: string[] = [];
 		await pollOnce({
@@ -86,9 +86,7 @@ describe("pollOnce", () => {
 			link: "https://example.com/x",
 			pubDate: "Thu, 30 Apr 2026 12:00:00 GMT",
 		};
-		spyOn(RSSParserModule.default.prototype, "parseURL").mockResolvedValue(
-			SAMPLE_FEED([item]) as never,
-		);
+		serveFeed([item]);
 
 		const seen: string[] = [];
 		await pollOnce({

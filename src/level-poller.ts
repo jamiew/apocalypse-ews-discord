@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { type LevelChange, levelChangePayload } from "./copy.js";
 import type { DB } from "./db.js";
+import { fetchTextCapped } from "./http.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("level-poller");
@@ -22,9 +23,7 @@ const Dashboard = z
 export type DashboardSnapshot = z.infer<typeof Dashboard>;
 
 export async function fetchDashboard(url: string): Promise<DashboardSnapshot> {
-	const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-	if (!res.ok) throw new Error(`dashboard fetch ${res.status} ${res.statusText}`);
-	return Dashboard.parse(await res.json());
+	return Dashboard.parse(JSON.parse(await fetchTextCapped(url, { label: "dashboard" })));
 }
 
 // First observation is recorded silently — startup shouldn't blast every subscriber.

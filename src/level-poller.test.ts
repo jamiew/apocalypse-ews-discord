@@ -16,12 +16,10 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 function mockFetch(body: unknown, ok = true) {
 	globalThis.fetch = (async () =>
-		({
-			ok,
+		new Response(JSON.stringify(body), {
 			status: ok ? 200 : 500,
 			statusText: ok ? "OK" : "Internal Server Error",
-			json: async () => body,
-		}) as Response) as unknown as typeof fetch;
+		})) as unknown as typeof fetch;
 }
 
 describe("pollLevelOnce", () => {

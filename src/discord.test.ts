@@ -187,7 +187,9 @@ describe("formatOperatorDm", () => {
 				guildName: "Other Example Guild",
 				extras: [{ label: "members", value: "5" }],
 			}),
-		).toBe(["INSTALL", '• guild: "Other Example Guild" (100000000000000004)', "• members: 5"].join("\n"));
+		).toBe(
+			["INSTALL", '• guild: "Other Example Guild" (100000000000000004)', "• members: 5"].join("\n"),
+		);
 	});
 
 	it("escapes markdown in stranger-controlled names", () => {

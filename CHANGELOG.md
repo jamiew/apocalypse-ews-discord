@@ -19,6 +19,9 @@
 
 - Biome 2.6.6 (config migrated: `recommended: true` → `preset: "recommended"`), TypeScript 7.0.2, `@types/bun` 1.4.4.
 - Removed stale `/dev-fire` references from `README.md` and `.env.example`.
+- Stricter gates. TypeScript: `verbatimModuleSyntax`, `erasableSyntaxOnly`, `noUncheckedSideEffectImports`, `allowUnreachableCode: false`, `allowUnusedLabels: false`. Biome: `noFloatingPromises`, `noMisusedPromises`, `useExhaustiveSwitchCases`, `noConsole`, `noProcessEnv`, `useAwait`, `noShadow`, `noImportCycles`, `noUnusedFunctionParameters`, `noUndeclaredDependencies`, `useThrowOnlyError`, `useErrorMessage`, `noEvolvingTypes`. Caught one floating promise: shutdown didn't await `node-cron` task stops.
+- Dropped the two remaining `as` casts in `discord.ts` in favour of `in` narrowing.
+- Dependabot: weekly grouped version updates (bun, GitHub Actions, Docker); alerts + automatic security PRs enabled on the repo. Daily `bun audit --audit-level=high` workflow fails on high/critical advisories.
 
 ## 2026-10-25
 

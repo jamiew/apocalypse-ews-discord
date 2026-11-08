@@ -43,35 +43,45 @@ export class OperatorWebhooks {
 	private send(destination: Destination, record: LogRecord): void {
 		const url = this.urls[destination];
 		if (!url || this.closed) return;
-		const content = webhookMessage(
+		const embed = webhookMessage(
 			this.redact(record.message),
 			record.level,
-			this.serialize(record),
+			this.serialize(record.context ?? {}),
+			record.ts,
+			this.redact(
+				typeof record.context?.["module"] === "string" ? record.context["module"] : "bot",
+			),
 		);
-		const delivery = this.deliver(destination, url, content).finally(() => {
+		const delivery = this.deliver(destination, url, embed).finally(() => {
 			this.pending.delete(delivery);
 		});
 		this.pending.add(delivery);
 	}
 
-	private serialize(details: unknown): string {
+	private serialize(details: Record<string, unknown>): Record<string, string> {
 		const seen = new WeakSet<object>();
-		const text = JSON.stringify(
-			details,
-			(key, value: unknown) => {
-				if (/token|secret|password|authorization/i.test(key)) return "[redacted]";
-				if (/^(content|stripped|body|requestBody)$/.test(key)) return "[omitted]";
-				if (typeof value === "bigint") return String(value);
-				if (value && typeof value === "object") {
-					if (seen.has(value)) return "[circular]";
-					seen.add(value);
-					if (value instanceof Error) return { name: value.name, message: value.message };
-				}
-				return value;
-			},
-			2,
-		);
-		return this.redact(text);
+		const format = (value: unknown, key: string): string => {
+			if (/token|secret|password|authorization/i.test(key)) return "[redacted]";
+			if (/^(content|stripped|body|requestBody)$/.test(key)) return "[omitted]";
+			if (value == null) return "Not available";
+			if (value instanceof Error)
+				return value.name === "Error" ? value.message : `${value.name}: ${value.message}`;
+			if (typeof value !== "object") return String(value);
+			if (seen.has(value)) return "[circular]";
+			seen.add(value);
+			if (Array.isArray(value)) return value.map((item) => format(item, "")).join(", ") || "None";
+			return (
+				Object.entries(value)
+					.map(([childKey, childValue]) => `${childKey}: ${format(childValue, childKey)}`)
+					.join("; ") || "None"
+			);
+		};
+		const fields: Record<string, string> = {};
+		for (const [key, value] of Object.entries(details)) {
+			if (/^(module|content|stripped|body|requestBody)$/.test(key)) continue;
+			fields[this.redact(key)] = this.redact(format(value, key));
+		}
+		return fields;
 	}
 
 	private redact(text: string): string {
@@ -82,14 +92,18 @@ export class OperatorWebhooks {
 		);
 	}
 
-	private async deliver(destination: Destination, url: string, content: string): Promise<void> {
+	private async deliver(
+		destination: Destination,
+		url: string,
+		embed: ReturnType<typeof webhookMessage>,
+	): Promise<void> {
 		try {
 			const endpoint = new URL(url);
 			endpoint.searchParams.set("wait", "true");
 			const response = await fetch(endpoint, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+				body: JSON.stringify({ embeds: [embed], allowed_mentions: { parse: [] } }),
 				signal: AbortSignal.timeout(5_000),
 				redirect: "error",
 			});

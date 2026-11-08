@@ -2,11 +2,21 @@
 
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
 
+export function webhookMessage(event: string, level: string, details: string): string {
+	const header = `[${level.toUpperCase()}] ${event.toUpperCase()}`
+		.replaceAll("`", "'")
+		.replace(/[\r\n]/g, " ")
+		.slice(0, 120);
+	const prefix = `${header}\n\`\`\`json\n`;
+	const body = clip(details.replaceAll("`", "'"), 2000 - prefix.length - 4);
+	return `${prefix}${body}\n\`\`\``;
+}
+
 export const GUILD_WELCOME = [
 	"APOCALYPSE EWS ONLINE.",
 	"",
 	`Tracked-aircraft anomaly monitoring. Source: ${SOURCE_URL}`,
-	"Emergency level 5 → announced here. Otherwise silent.",
+	"Every emergency-level change and level 5 incident is announced here.",
 	"",
 	"`/subscribe` `/unsubscribe` `/status` `/help`. Or @-mention with the same word.",
 	"Uninstall: Server Settings → Integrations → Apocalypse EWS → Remove.",
@@ -15,7 +25,7 @@ export const GUILD_WELCOME = [
 ].join("\n");
 
 export const GUILD_SUBSCRIBE_OK =
-	"SUBSCRIBED. This channel receives level 5 alerts. `/unsubscribe` to stand down.";
+	"SUBSCRIBED. Emergency-level changes and level 5 incidents appear here. `/unsubscribe` to stand down.";
 
 export const GUILD_ALREADY_SUBSCRIBED = "Already subscribed.";
 
@@ -36,16 +46,17 @@ export const HELP = [
 
 export const DM_OPT_IN_PROMPT = [
 	"APOCALYPSE EWS.",
-	`Level 5 alerts only — rare. Source: ${SOURCE_URL}`,
+	`Emergency-level changes and level 5 incidents. Source: ${SOURCE_URL}`,
 	"Reply `subscribe` to opt in, `unsubscribe` to stand down.",
 ].join("\n");
 
-export const DM_SUBSCRIBE_OK = "SUBSCRIBED. Level 5 alerts inbound by DM. `unsubscribe` to stop.";
+export const DM_SUBSCRIBE_OK =
+	"SUBSCRIBED. Emergency-level changes and level 5 incidents inbound by DM. `unsubscribe` to stop.";
 
 export const DM_ALREADY_SUBSCRIBED = "Already subscribed.";
 
 export const DM_UNSUBSCRIBE_OK =
-	"Unsubscribed. Block or remove the bot from Discord privacy settings if you want it gone entirely.";
+	"Unsubscribed. Block the bot in Discord to stop further DMs. Past records are not deleted.";
 
 export const DM_NOT_SUBSCRIBED = "Not subscribed.";
 

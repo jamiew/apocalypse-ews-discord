@@ -30,6 +30,7 @@ src/copy.ts           VOICE — every user-facing string
 src/env.ts            CONFIG — zod-validated env
 src/log.ts            TELEMETRY — zero-dep stdout + ./data/ews.log
 src/http.ts           INGEST — fetchTextCapped: timeout + byte cap for every upstream fetch
+src/webhooks.ts       NOTIFY — Discord DEBUG/INFO and WARN/ERROR destinations
 migrations/  0001 subscribers + seen_alerts · 0002 events · 0003 level_state
 ```
 
@@ -38,7 +39,7 @@ Four tables. `seen_alerts` is the idempotency boundary (mid-flight restart skips
 Canonical helpers — use these instead of inlining:
 
 - `db.lastAlertForDisplay()` — `SeenAlert` → `LastAlert`. Don't reconstruct.
-- `announceSubscribe(client, deps, args)` / `announceUnsubscribe(...)` — record event AND DM operator atomically.
+- `announceSubscribe(deps, args)` / `announceUnsubscribe(...)` — record the event and log it. The log sink forwards notifications to the matching webhook.
 - `fanOutAlert` (RSS-driven) and `fanOutLevelChange` (level-poller-driven) for the dispatch.
 
 ## // VOICE — `copy.ts`
@@ -78,7 +79,7 @@ discord.js interactions are already typed. SQLite rows are typed via `query<Resu
 
 ## // GOTCHAS
 
-- Message Content Intent must be enabled in the Developer Portal (DM ping/pong + reading @-mention bodies).
+- No privileged gateway intents are needed. DMs and direct @mentions include message content without Message Content Intent. Deploy code that stops requesting it before disabling the portal toggle.
 - Partials `[Channel, Message]` — required so `messageCreate` fires for uncached DMs.
 - Global slash commands take ~1h to propagate. Set `TEST_GUILD_ID` for instant guild-scoped in dev.
 - **Guild-scoped registration requires the bot already in the guild.** Invite first, register second. Otherwise: `DiscordAPIError[50001] Missing Access`.
@@ -99,7 +100,7 @@ Two streams. Both matter.
 
 3am-grep → `log`. Historical query → `events`. Most user-facing actions deserve both.
 
-Operator DM on install / subscribe / unsubscribe via `notifyOperator(client, deps, content)` — best-effort, swallows DM-closed errors.
+Operator notifications use `INFO_WEBHOOK_URL` for DEBUG/INFO and `ERROR_WEBHOOK_URL` for WARN/ERROR. Configure the log sink in `index.ts`; do not send operator DMs. Installs/uninstalls and routine status stay at INFO. RSS alerts and level changes reaching 4–5 use WARN. INFO-webhook failures go to ERROR, while ERROR-webhook failures stay local to avoid recursion. Delivery is best-effort; shutdown drains pending sends. `.env.sample` is the secret-free configuration template.
 
 ## // TEST CONVENTIONS
 
@@ -117,7 +118,7 @@ Per global `~/.claude/CLAUDE.md`:
 - **Copy edit → re-read VOICE section.** Bar: would this feel out of place on the source website?
 - **New handler → record an event.** Extend `EventKind` AND `EventPayloadByKind` first, then `db.recordEvent({...})` at the action site. Both success and failure deserve their own kinds (`*_ok` / `*_fail`).
 - **New external data source → Zod schema.** Parse before using. No `as`-casts.
-- **Subscribe/unsubscribe action → use `announceSubscribe` / `announceUnsubscribe`.** Don't reinvent the recordEvent + notifyOperator pair.
+- **Subscribe/unsubscribe action → use `announceSubscribe` / `announceUnsubscribe`.** Don't duplicate event recording, logging, or webhook delivery at the call site.
 
 ## // COMMIT MESSAGE STYLE
 

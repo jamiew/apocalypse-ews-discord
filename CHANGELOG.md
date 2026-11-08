@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-08
+
+### Security
+
+- Dependencies bumped to latest: discord.js 14.28.1, zod 4.6.7, node-cron 4.6.0. Clears 17 `bun audit` advisories (7 high) in transitive `undici` <6.29.1 (TLS cert validation bypass, WebSocket / content-encoding DoS), `ws` <8.21.0 (fragment memory exhaustion), and `zod` <4.6.6 (oversized-collection memory exhaustion).
+
+### Tooling
+
+- Biome 2.6.6 (config migrated: `recommended: true` → `preset: "recommended"`), TypeScript 7.0.2, `@types/bun` 1.4.4.
+
 ## 2026-10-25
 
 ### Security

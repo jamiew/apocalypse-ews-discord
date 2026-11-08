@@ -66,7 +66,7 @@ discord.js interactions are already typed. SQLite rows are typed via `query<Resu
 ## // TOOLING
 
 - **Bun.** Runtime, package manager, test runner, script runner. No pnpm, no node, no tsx, no vitest.
-- **Biome 2.4:** tabs, line width 100. Strict rules: `noNonNullAssertion`, `useImportType`, `noExplicitAny`, `noUnusedVariables`, `noUnusedImports` all `error`. `useLiteralKeys` is `off` (collides with TS `noPropertyAccessFromIndexSignature`).
+- **Biome 2.6:** tabs, line width 100. Strict rules: `noNonNullAssertion`, `useImportType`, `noExplicitAny`, `noUnusedVariables`, `noUnusedImports` all `error`. `useLiteralKeys` is `off` (collides with TS `noPropertyAccessFromIndexSignature`).
 - **TypeScript strict** + `noUncheckedIndexedAccess` + `noImplicitOverride` + `noImplicitReturns` + `noFallthroughCasesInSwitch` + `noPropertyAccessFromIndexSignature` + `exactOptionalPropertyTypes`. `tsconfig.json` carries `types: ["bun"]` to pull in bun-types for `bun:*` modules.
 - **`bun:test`.** In-memory SQLite for db tests, fake client object for the dispatch tests.
 

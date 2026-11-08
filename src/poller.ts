@@ -3,6 +3,7 @@ import RSSParser from "rss-parser";
 import { z } from "zod";
 import type { AlertItem } from "./copy.js";
 import type { DB } from "./db.js";
+import { fetchTextCapped } from "./http.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("poller");
@@ -11,7 +12,7 @@ export interface NewAlert extends AlertItem {
 	guid: string;
 }
 
-const parser = new RSSParser({ timeout: 15_000 });
+const parser = new RSSParser();
 
 // rss-parser's types are compile-time only; validate the upstream XML at the boundary.
 const RssItem = z
@@ -39,7 +40,7 @@ function deriveGuid(item: RssItemShape): string {
 }
 
 async function fetchFeed(url: string): Promise<NewAlert[]> {
-	const raw = await parser.parseURL(url);
+	const raw = await parser.parseString(await fetchTextCapped(url, { label: "rss" }));
 	const feed = RssFeed.parse(raw);
 	return feed.items.map((item) => ({
 		guid: deriveGuid(item),

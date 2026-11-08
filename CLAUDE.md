@@ -29,6 +29,7 @@ src/db.ts             STATE — bun:sqlite, EventKind, recordEvent
 src/copy.ts           VOICE — every user-facing string
 src/env.ts            CONFIG — zod-validated env
 src/log.ts            TELEMETRY — zero-dep stdout + ./data/ews.log
+src/http.ts           INGEST — fetchTextCapped: timeout + byte cap for every upstream fetch
 migrations/  0001 subscribers + seen_alerts · 0002 events · 0003 level_state
 ```
 

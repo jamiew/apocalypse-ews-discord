@@ -36,6 +36,13 @@ describe("alertPayload", () => {
 		const out = alertPayload({ title: "t", link: "", pubDate: "" });
 		expect(out.split("\n")).toEqual([HEADER, "t"]);
 	});
+
+	it("stays under Discord's 2000-character limit for oversized upstream fields", () => {
+		const huge = "x".repeat(5000);
+		const out = alertPayload({ title: huge, link: `https://e.com/${huge}`, pubDate: huge });
+		expect(out.length).toBeLessThanOrEqual(2000);
+		expect(out.split("\n")[1]).toBe(`${"x".repeat(255)}…`);
+	});
 });
 
 describe("statusLine", () => {
@@ -138,6 +145,22 @@ describe("levelChangePayload", () => {
 	it("first observation formats an unknown previous level", () => {
 		const out = levelChangePayload({ ...base, level: 3, prevLevel: null }, { now });
 		expect(out).toContain("Level unknown -> level 3.");
+	});
+
+	it("keeps an oversized label under 2000 characters", () => {
+		const out = levelChangePayload(
+			{ ...base, alertLevel: "y".repeat(5000), level: 5, prevLevel: 4 },
+			{ now },
+		);
+		expect(out.length).toBeLessThanOrEqual(2000);
+	});
+
+	it("does not let upstream backticks close the metadata fence", () => {
+		const out = levelChangePayload(
+			{ ...base, alertLevel: "```\n@everyone", level: 4, prevLevel: 3 },
+			{ now },
+		);
+		expect(out.match(/```/g)).toHaveLength(2);
 	});
 });
 

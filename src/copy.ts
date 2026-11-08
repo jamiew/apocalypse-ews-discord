@@ -75,8 +75,22 @@ export const MENTION_UNKNOWN =
 export const MENTION_INSUFFICIENT_PRIVILEGES =
 	"INSUFFICIENT PRIVILEGES. `subscribe` and `unsubscribe` require ManageGuild on this server.";
 
+// Upstream text is untrusted. Bound each field so one oversized value can't push a
+// message past Discord's 2000-character limit and fail every send for that alert.
+const MAX_FIELD = 256;
+const MAX_LINK = 512;
+
+function clip(s: string, max = MAX_FIELD): string {
+	return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
 export function alertPayload(item: AlertItem): string {
-	return ["ATTENTION. EMERGENCY LEVEL 5.", item.title, item.pubDate, item.link]
+	return [
+		"ATTENTION. EMERGENCY LEVEL 5.",
+		clip(item.title),
+		clip(item.pubDate),
+		clip(item.link, MAX_LINK),
+	]
 		.filter(Boolean)
 		.join("\n");
 }
@@ -128,8 +142,9 @@ function levelBanner(level: number, rising: boolean): string {
 		: `${emoji} apocalypse ews // alert level downgraded`;
 }
 
+// Values land inside a ```text fence; backticks would let upstream text close it early.
 function levelField(label: string, value: string): string {
-	return `${label.padEnd(14, ".")} ${value}`;
+	return `${label.padEnd(14, ".")} ${clip(value).replaceAll("`", "'")}`;
 }
 
 function formatRelativeUnit(value: number, unit: Intl.RelativeTimeFormatUnit): string {
@@ -182,7 +197,7 @@ export function levelChangePayload(c: LevelChange, opts?: { now?: Date }): strin
 }
 
 function formatLastAlert(last: LastAlert): string {
-	return last ? `${last.pubDate} — ${last.title}` : "none";
+	return last ? `${clip(last.pubDate)} — ${clip(last.title)}` : "none";
 }
 
 function formatLevel(level: number | null): string {

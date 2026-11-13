@@ -112,9 +112,9 @@ Operator notifications use `INFO_WEBHOOK_URL` for INFO and `ERROR_WEBHOOK_URL` f
 
 ## // TEST CONVENTIONS
 
-Per global `~/.claude/CLAUDE.md`:
+`bun run ci` (Biome, `tsc`, `bun test`) enforces part of this; the rest is review.
 
-- **No `if` in tests.** Use `import { ok as assert } from "node:assert/strict"` for narrowing.
+- **No `if` in test bodies.** Use `import { ok as assert } from "node:assert/strict"` for narrowing. Fakes and stubs may branch.
 - **No `!.` non-null assertions.** Biome enforces. Use `assert(...)` or extract a helper (`subId(...)` in `db.test.ts`).
 - Co-locate: `src/foo.test.ts` next to `src/foo.ts`.
 - `describe` named after the function/class under test.
@@ -140,7 +140,7 @@ Stay in character. Status-code header followed by terse dispatch-style bullets.
   - `SWITCH // pnpm + node + better-sqlite3 → bun all the way`
 - **Body:** declarative bullets, present tense, lowercase prose, no fluff. Drop "this commit", "we now", "I added". State the change.
 - **Optional closer:** one short status line — `STANDING BY.`, `ACK.`, `OUT.` — only if it earns its space.
-- Still no Claude Code attribution. Still `--no-gpg-sign`. Still atomic commits per logical change.
+- No AI attribution trailers. Commit with `--no-gpg-sign`. One atomic commit per logical change.
 
 ```
 ACKNOWLEDGE.

@@ -1,50 +1,7 @@
-import { type APIEmbed, escapeMarkdown } from "discord.js";
-
 // Tone: deadpan, technical, no emojis, no exclamation points. Wryness from framing.
 
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
 export const INSTALL_URL = "https://jamiew.github.io/apocalypse-ews-discord/";
-
-const colors: Record<string, number> = {
-	debug: 0x747f8d,
-	info: 0x3498db,
-	warn: 0xf1c40f,
-	error: 0xe74c3c,
-};
-export function webhookMessage(
-	event: string,
-	level: string,
-	details: Record<string, string>,
-	timestamp: string,
-	module: string,
-): APIEmbed {
-	const title = event
-		.replace(/^guild install$/, "server installed")
-		.replace(/^guild remove$/, "server removed")
-		.replace(/[\r\n]/g, " ")
-		.toUpperCase();
-	const description = Object.entries(details)
-		.map(([key, value]) => {
-			const label = key
-				.replace(/^guild/, "server")
-				.replace(/^err$/, "error")
-				.replace(/Tag$/, "")
-				.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-				.replace(/_/g, " ")
-				.toLowerCase()
-				.replace(/\bid\b/gi, "ID")
-				.replace(/^./, (letter) => letter.toUpperCase());
-			return `**${escapeMarkdown(label)}:** ${escapeMarkdown(value)}`;
-		})
-		.join("\n");
-	return {
-		title: clip(title, 256),
-		...(description ? { description: clip(description, 4096) } : {}),
-		color: colors[level] ?? 0x3498db,
-		footer: { text: `${level.toUpperCase()} · ${clip(module, 64)}` },
-		timestamp,
-	};
-}
 
 export const GUILD_WELCOME = [
 	"APOCALYPSE EWS ONLINE.",

@@ -12,6 +12,11 @@
 - The website explains that a personal install delivers by DM only.
 - Discord app Guild Install now requests the `bot` scope with View Channel + Send Messages. Before, "Add App" added only commands to a server, and the bot never joined.
 
+### Notifications
+
+- Operator webhook embeds have per-event layouts: a clear title (`SERVER INSTALLED`, `LEVEL 1 → 2`, `SUBSCRIPTION AUDIT`), the key fact in the description, and inline fields for counts. Empty, default, and "Not available" details are hidden; timestamps render as Discord dates; errors sit in a code block. Unknown events fall back to a generic layout.
+- Webhook sends are batched: notices within one second share a message (up to 10 embeds), and a 429 waits for `Retry-After` and retries twice. On November 14, 2026, the alert's error burst hit the rate limit and many failure notices never arrived.
+
 ## 2026-11-08
 
 ### Notifications

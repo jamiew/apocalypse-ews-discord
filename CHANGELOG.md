@@ -11,6 +11,8 @@
 - The welcome message picks a channel the bot can both view and post in.
 - The website explains that a personal install delivers by DM only.
 - Discord app Guild Install now requests the `bot` scope with View Channel + Send Messages. Before, "Add App" added only commands to a server, and the bot never joined.
+- Blocked subscriptions (the bot is in the server but can't post in the subscribed channel) now get a notice explaining the fix and how to unsubscribe or remove the app. It goes to a channel the bot can post in, or by DM to the server owner when there is none, at most once per 30 days. Startup also asks the API about subscribed channels missing from the cache, pruning deleted ones and flagging hidden ones.
+- `/status` and `@bot status` give a fuller report: level, last alert, whether this channel is subscribed and can receive posts, and the server's other alert channels with blocked ones marked. In a server without the bot, `/status` explains that and shows your DM subscription. DM status says how to opt in or out.
 
 ### Notifications
 

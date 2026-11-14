@@ -13,6 +13,7 @@ import {
 	classifyMentionText,
 	classifyWelcomeError,
 	commandDefinitions,
+	isBlockedError,
 	pickWelcomeChannelFrom,
 	pruneReasonFor,
 	stripMention,
@@ -226,6 +227,22 @@ describe("pruneReasonFor", () => {
 	it("keeps subscribers on transient errors", () => {
 		expect(pruneReasonFor(new Error("socket hang up"), channel, notInGuild)).toBeNull();
 		expect(pruneReasonFor({ status: 500 }, dm, inGuild)).toBeNull();
+	});
+});
+
+describe("isBlockedError", () => {
+	const channel = { kind: "guild_channel", guild_id: "guild-1" } as const;
+
+	it("treats permission errors in a server the bot is in as fixable", () => {
+		expect(isBlockedError({ code: 50013 }, channel, () => true)).toBe(true);
+		expect(isBlockedError({ code: 50001 }, channel, () => true)).toBe(true);
+	});
+
+	it("does not treat a server the bot left, other errors, or DMs as blocked", () => {
+		expect(isBlockedError({ code: 50001 }, channel, () => false)).toBe(false);
+		expect(isBlockedError({ code: 10003 }, channel, () => true)).toBe(false);
+		expect(isBlockedError(new Error("timeout"), channel, () => true)).toBe(false);
+		expect(isBlockedError({ code: 50013 }, { kind: "dm", guild_id: null }, () => true)).toBe(false);
 	});
 });
 

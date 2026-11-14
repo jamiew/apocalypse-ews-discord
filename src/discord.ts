@@ -7,6 +7,7 @@ import {
 	Events,
 	GatewayIntentBits,
 	type Guild,
+	type GuildMember,
 	InteractionContextType,
 	type Message,
 	MessageFlags,
@@ -23,11 +24,13 @@ import {
 import {
 	type AlertItem,
 	alertPayload,
+	blockedNotice,
 	DM_ALREADY_SUBSCRIBED,
 	DM_NOT_SUBSCRIBED,
 	DM_OPT_IN_PROMPT,
 	DM_SUBSCRIBE_OK,
 	DM_UNSUBSCRIBE_OK,
+	dmStatusReport,
 	GUILD_ALREADY_SUBSCRIBED,
 	GUILD_BOT_ABSENT,
 	GUILD_NOT_SUBSCRIBED,
@@ -35,13 +38,14 @@ import {
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
 	guildCannotPost,
+	guildStatusReport,
 	HELP,
 	type LevelChange,
 	levelChangePayload,
 	MENTION_INSUFFICIENT_PRIVILEGES,
 	MENTION_UNKNOWN,
 	pingPongLine,
-	statusLine,
+	type SubscribedChannel,
 } from "./copy.js";
 import {
 	type DB,
@@ -250,7 +254,9 @@ export function createClient(deps: BotDeps): Client {
 
 	client.once(Events.ClientReady, (c) => {
 		log.debug("logged in", { tag: c.user.tag, id: c.user.id });
-		auditSubscriptions(c, deps.db);
+		void auditSubscriptions(c, deps.db).catch((err) =>
+			log.error("subscription audit failed", { err }),
+		);
 	});
 
 	client.on(Events.GuildCreate, (guild) => {
@@ -354,18 +360,8 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	deps.db.recordEvent({ kind: "guild_create", guildId: guild.id, payload: info });
 	log.info("guild install", { guildId: guild.id, ...info });
 
-	const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
-		id: c.id,
-		type: c.type,
-		position: "position" in c ? (c.position ?? 0) : 0,
-		canSend: botCanPost(c.permissionsFor(me), c.isThread()),
-	}));
-	const sys = guild.systemChannel;
-	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
-	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
-
-	const channel = picked ? guild.channels.cache.get(picked.id) : undefined;
-	if (!picked || !isSendable(channel)) {
+	const channel = pickPostableChannel(guild, me);
+	if (!channel) {
 		recordWelcomeFailure(deps, guild.id, "no_channel");
 		log.warn("welcome send failed", { guildId: guild.id, reason: "no_channel" });
 		return;
@@ -383,7 +379,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	deps.db.recordEvent({
 		kind: "guild_welcome_sent",
 		guildId: guild.id,
-		channelId: picked.id,
+		channelId: channel.id,
 	});
 
 	// Auto-subscribe the welcome channel so the server gets alerts immediately
@@ -391,7 +387,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 	const channelName = "name" in channel ? channel.name : "";
 	const result = deps.db.upsertSubscribed({
 		kind: "guild_channel",
-		discordId: picked.id,
+		discordId: channel.id,
 		guildId: guild.id,
 		now: new Date().toISOString(),
 	});
@@ -400,7 +396,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 			kind: "guild_channel",
 			via: "install",
 			guildId: guild.id,
-			channelId: picked.id,
+			channelId: channel.id,
 			guildName: guild.name,
 			channelName,
 			userId: owner?.id ?? guild.ownerId,
@@ -470,33 +466,139 @@ function pruneSubscriber(db: DB, sub: Subscriber, reason: PruneReason, err?: unk
 }
 
 // Unsubscribes `sub` when `err` means delivery can never succeed; returns the reason, else null.
-export function pruneIfDead(
-	client: Client,
-	db: DB,
-	sub: Subscriber,
-	err: unknown,
-): PruneReason | null {
+function pruneIfDead(client: Client, db: DB, sub: Subscriber, err: unknown): PruneReason | null {
 	const reason = pruneReasonFor(err, sub, (id) => client.guilds.cache.has(id));
 	if (reason) pruneSubscriber(db, sub, reason, err);
 	return reason;
 }
 
-export function reportPruned(source: string, reasons: readonly PruneReason[]): void {
+function reportPruned(source: string, reasons: readonly PruneReason[]): void {
 	if (reasons.length === 0) return;
 	const byReason: Partial<Record<PruneReason, number>> = {};
 	for (const r of reasons) byReason[r] = (byReason[r] ?? 0) + 1;
 	log.info("dead subscriptions pruned", { source, count: reasons.length, ...byReason });
 }
 
+// System channel first, then the topmost text channel the bot can post in.
+function pickPostableChannel(guild: Guild, me: GuildMember) {
+	const candidates: WelcomeChannelCandidate[] = guild.channels.cache.map((c) => ({
+		id: c.id,
+		type: c.type,
+		position: "position" in c ? (c.position ?? 0) : 0,
+		canSend: botCanPost(c.permissionsFor(me), c.isThread()),
+	}));
+	const sys = guild.systemChannel;
+	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
+	const picked = pickWelcomeChannelFrom(sysCandidate, candidates);
+	const channel = picked ? guild.channels.cache.get(picked.id) : undefined;
+	return isSendable(channel) ? channel : undefined;
+}
+
+// Missing Access or Missing Permissions inside a server the bot still belongs to: an admin
+// can fix it, so the subscription stays and the server is told how.
+export function isBlockedError(
+	err: unknown,
+	sub: Pick<Subscriber, "kind" | "guild_id">,
+	botInGuild: (guildId: Snowflake) => boolean,
+): boolean {
+	if (sub.kind !== "guild_channel" || sub.guild_id === null) return false;
+	const code = discordErrorCode(err);
+	if (code === RESTJSONErrorCodes.MissingPermissions) return true;
+	return code === RESTJSONErrorCodes.MissingAccess && botInGuild(sub.guild_id);
+}
+
+export const BLOCKED_NOTICE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Tells each blocked server how to fix delivery or remove the app: in a channel the bot can
+// post in, else by DM to the owner. At most once per subscription per cooldown, success or not.
+export async function noticeBlocked(
+	client: Client,
+	db: DB,
+	subs: readonly Subscriber[],
+	now = new Date(),
+): Promise<void> {
+	let channel = 0;
+	let ownerDm = 0;
+	let failed = 0;
+	for (const sub of subs) {
+		const guild = sub.guild_id === null ? undefined : client.guilds.cache.get(sub.guild_id);
+		const me = guild?.members.me;
+		if (!guild || !me) continue;
+		const last = db.lastBlockedNoticeTs(sub.discord_id);
+		if (last !== null && now.getTime() - Date.parse(last) < BLOCKED_NOTICE_COOLDOWN_MS) continue;
+		const where = subscriberAddress(sub);
+		try {
+			const target = pickPostableChannel(guild, me);
+			if (target) {
+				await target.send(blockedNotice(sub.discord_id));
+				channel++;
+				db.recordEvent({
+					kind: "blocked_notice_ok",
+					...where,
+					payload: { route: "channel", noticeChannelId: target.id },
+				});
+			} else {
+				const owner = await guild.fetchOwner();
+				await owner.send(blockedNotice(sub.discord_id, guild.name));
+				ownerDm++;
+				db.recordEvent({
+					kind: "blocked_notice_ok",
+					...where,
+					payload: { route: "owner_dm", noticeChannelId: null },
+				});
+			}
+		} catch (err) {
+			failed++;
+			db.recordEvent({ kind: "blocked_notice_fail", ...where, payload: { err } });
+			log.debug("blocked notice failed", { err, guildId: sub.guild_id, channelId: sub.discord_id });
+		}
+	}
+	if (channel + ownerDm + failed > 0) {
+		log.info("blocked subscriptions notified", { channel, ownerDm, failed });
+	}
+}
+
+// One delivery pass: prunes dead subscriptions, queues blocked ones for a server notice, and
+// leaves everything else for the caller to report as an error.
+export class DeliveryTriage {
+	private readonly client: Client;
+	private readonly db: DB;
+	private readonly pruned: PruneReason[] = [];
+	private readonly blocked: Subscriber[] = [];
+
+	constructor(client: Client, db: DB) {
+		this.client = client;
+		this.db = db;
+	}
+
+	classify(sub: Subscriber, err: unknown): "pruned" | "blocked" | "failed" {
+		const reason = pruneIfDead(this.client, this.db, sub, err);
+		if (reason) {
+			this.pruned.push(reason);
+			return "pruned";
+		}
+		if (isBlockedError(err, sub, (id) => this.client.guilds.cache.has(id))) {
+			this.blocked.push(sub);
+			return "blocked";
+		}
+		return "failed";
+	}
+
+	async finish(source: string): Promise<void> {
+		reportPruned(source, this.pruned);
+		await noticeBlocked(this.client, this.db, this.blocked);
+	}
+}
+
 // READY delivers every guild the bot belongs to, so a subscription whose server is absent
 // can never deliver: the bot was removed while offline, or `/subscribe` ran as a user-installed
 // command in a server that never added the bot.
-export function auditSubscriptions(client: Client<true>, db: DB): void {
+export async function auditSubscriptions(client: Client<true>, db: DB): Promise<void> {
 	// An empty guild list means a broken READY, not removal from every server.
 	if (client.guilds.cache.size === 0) return;
 	const pruned: PruneReason[] = [];
+	const blocked: Subscriber[] = [];
 	let reachable = 0;
-	let cannotPost = 0;
 	let unverified = 0;
 	for (const sub of db.listActive("guild_channel")) {
 		const guild = sub.guild_id === null ? undefined : client.guilds.cache.get(sub.guild_id);
@@ -505,24 +607,56 @@ export function auditSubscriptions(client: Client<true>, db: DB): void {
 			pruned.push("not_in_guild");
 			continue;
 		}
-		const channel = guild?.channels.cache.get(sub.discord_id);
 		const me = guild?.members.me;
+		let channel = guild?.channels.cache.get(sub.discord_id) ?? null;
+		if (!channel && guild?.available && me) {
+			// Not in the cache: deleted, or hidden from the bot. Ask the API which.
+			try {
+				const fetched = await client.channels.fetch(sub.discord_id);
+				channel = fetched && !fetched.isDMBased() ? fetched : null;
+			} catch (err) {
+				const reason = pruneIfDead(client, db, sub, err);
+				if (reason) {
+					pruned.push(reason);
+					continue;
+				}
+				if (isBlockedError(err, sub, (id) => client.guilds.cache.has(id))) {
+					blocked.push(sub);
+					continue;
+				}
+			}
+		}
 		if (!channel || !me) {
 			unverified++;
 		} else if (botCanPost(channel.permissionsFor(me), channel.isThread())) {
 			reachable++;
 		} else {
-			cannotPost++;
+			blocked.push(sub);
 		}
 	}
 	reportPruned("startup", pruned);
 	log.info("subscriptions audited", {
 		guilds: client.guilds.cache.size,
 		reachable,
-		cannotPost,
+		cannotPost: blocked.length,
 		unverified,
 		dm: db.listActive("dm").length,
 	});
+	await noticeBlocked(client, db, blocked);
+}
+
+function subscribedChannelsIn(guild: Guild, db: DB): SubscribedChannel[] {
+	const me = guild.members.me;
+	return db
+		.listActive("guild_channel")
+		.filter((s) => s.guild_id === guild.id)
+		.map((s) => {
+			const channel = guild.channels.cache.get(s.discord_id);
+			return {
+				id: s.discord_id,
+				canPost: channel && me ? botCanPost(channel.permissionsFor(me), channel.isThread()) : null,
+			};
+		});
 }
 
 function recordWelcomeFailure(
@@ -710,19 +844,25 @@ async function cmdUnsubscribe(
 }
 
 async function cmdStatus(interaction: ChatInputCommandInteraction, deps: BotDeps): Promise<void> {
-	const sub = interaction.guildId
-		? interaction.channelId
-			? deps.db.findSubscriber("guild_channel", interaction.channelId)
-			: undefined
-		: deps.db.findSubscriber("dm", interaction.user.id);
-	await interaction.reply({
-		content: statusLine({
-			subscribed: sub?.status === "active",
-			lastAlert: deps.db.lastAlertForDisplay(),
-			currentLevel: deps.db.getLevelState().emergency_level,
-		}),
-		flags: MessageFlags.Ephemeral,
-	});
+	const lastAlert = deps.db.lastAlertForDisplay();
+	const currentLevel = deps.db.getLevelState().emergency_level;
+	const dmReport = () =>
+		dmStatusReport({
+			subscribed: deps.db.findSubscriber("dm", interaction.user.id)?.status === "active",
+			lastAlert,
+			currentLevel,
+		});
+	const content = !interaction.guildId
+		? dmReport()
+		: interaction.inCachedGuild()
+			? guildStatusReport({
+					channelId: interaction.channelId,
+					channels: subscribedChannelsIn(interaction.guild, deps.db),
+					lastAlert,
+					currentLevel,
+				})
+			: `${GUILD_BOT_ABSENT}\n\n${dmReport()}`;
+	await interaction.reply({ content, flags: MessageFlags.Ephemeral });
 }
 
 async function handleDM(message: Message, deps: BotDeps): Promise<void> {
@@ -795,7 +935,7 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 
 	if (intent === "status") {
 		await reply(
-			statusLine({
+			dmStatusReport({
 				subscribed: sub?.status === "active",
 				lastAlert: deps.db.lastAlertForDisplay(),
 				currentLevel: deps.db.getLevelState().emergency_level,
@@ -865,10 +1005,10 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 	}
 
 	if (intent === "status") {
-		const sub = deps.db.findSubscriber("guild_channel", channelId);
 		await reply(
-			statusLine({
-				subscribed: sub?.status === "active",
+			guildStatusReport({
+				channelId,
+				channels: subscribedChannelsIn(message.guild, deps.db),
 				lastAlert: deps.db.lastAlertForDisplay(),
 				currentLevel: deps.db.getLevelState().emergency_level,
 			}),
@@ -937,7 +1077,7 @@ async function fanOut(
 	buildMeta: (sub: Subscriber) => AlertDispatchPayload,
 ): Promise<{ sent: number; failed: number }> {
 	const subs = deps.db.listActive();
-	const pruned: PruneReason[] = [];
+	const triage = new DeliveryTriage(client, deps.db);
 	let sent = 0;
 	let failed = 0;
 	for (const sub of subs) {
@@ -954,12 +1094,12 @@ async function fanOut(
 				...where,
 				payload: { ...meta, err },
 			});
-			const reason = pruneIfDead(client, deps.db, sub, err);
-			if (reason) pruned.push(reason);
-			else log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
+			if (triage.classify(sub, err) === "failed") {
+				log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
+			}
 		}
 	}
-	reportPruned("alert", pruned);
+	await triage.finish("alert");
 	return { sent, failed };
 }
 

@@ -2,10 +2,13 @@ import { describe, expect, it } from "bun:test";
 import {
 	ANNUAL_REMINDER,
 	alertPayload,
+	blockedNotice,
 	DM_OPT_IN_PROMPT,
+	dmStatusReport,
 	GUILD_BOT_ABSENT,
 	GUILD_WELCOME,
 	guildCannotPost,
+	guildStatusReport,
 	HELP,
 	heartbeatPayload,
 	type LevelChange,
@@ -14,7 +17,6 @@ import {
 	MENTION_UNKNOWN,
 	pingPongLine,
 	SOURCE_URL,
-	statusLine,
 } from "./copy.js";
 
 describe("alertPayload", () => {
@@ -47,20 +49,88 @@ describe("alertPayload", () => {
 	});
 });
 
-describe("statusLine", () => {
-	it("renders subscribed + last alert", () => {
+describe("dmStatusReport", () => {
+	it("leads with level and last alert, then the DM state and the way out", () => {
 		expect(
-			statusLine({
+			dmStatusReport({
 				subscribed: true,
 				lastAlert: { title: "Alert.", pubDate: "Thu, 30 Apr 2026 12:00:00 GMT" },
 				currentLevel: 2,
 			}),
-		).toBe("SUBSCRIBED. Level: 2. Last level 5 alert: Thu, 30 Apr 2026 12:00:00 GMT — Alert..");
+		).toBe(
+			[
+				"STATUS REPORT.",
+				"Level: 2. Last level 5 alert: Thu, 30 Apr 2026 12:00:00 GMT — Alert..",
+				"DM alerts: SUBSCRIBED. Send `unsubscribe` to stop.",
+			].join("\n"),
+		);
 	});
 
-	it("renders not-subscribed + no alert on record", () => {
-		expect(statusLine({ subscribed: false, lastAlert: null, currentLevel: null })).toBe(
-			"NOT SUBSCRIBED. Level: unknown. Last level 5 alert: none.",
+	it("tells an unsubscribed user how to opt in", () => {
+		expect(dmStatusReport({ subscribed: false, lastAlert: null, currentLevel: null })).toContain(
+			"DM alerts: NOT SUBSCRIBED. Send `subscribe` to opt in.",
+		);
+	});
+});
+
+describe("guildStatusReport", () => {
+	const base = { lastAlert: null, currentLevel: 1 };
+
+	it("confirms a working subscription here", () => {
+		const out = guildStatusReport({
+			...base,
+			channelId: "c1",
+			channels: [{ id: "c1", canPost: true }],
+		});
+		expect(out).toContain("This channel: SUBSCRIBED. `/unsubscribe` to stand down.");
+		expect(out).not.toContain("Other alert channels");
+	});
+
+	it("flags a subscription here that the bot cannot post to", () => {
+		const out = guildStatusReport({
+			...base,
+			channelId: "c1",
+			channels: [{ id: "c1", canPost: false }],
+		});
+		expect(out).toContain(
+			"This channel: SUBSCRIBED, BLOCKED. The bot needs View Channel and Send Messages here.",
+		);
+	});
+
+	it("points to the server's other alert channels and marks blocked ones", () => {
+		const out = guildStatusReport({
+			...base,
+			channelId: "here",
+			channels: [
+				{ id: "a", canPost: true },
+				{ id: "b", canPost: false },
+				{ id: "c", canPost: null },
+			],
+		});
+		expect(out).toContain("This channel: NOT SUBSCRIBED. `/subscribe` here to receive alerts.");
+		expect(out).toContain("Other alert channels here: <#a>, <#b> (BLOCKED), <#c>.");
+		expect(out).toContain("The bot needs View Channel and Send Messages in blocked channels.");
+	});
+
+	it("says when nothing in the server receives alerts", () => {
+		const out = guildStatusReport({ ...base, channelId: "here", channels: [] });
+		expect(out).toContain("No channel in this server receives alerts.");
+	});
+});
+
+describe("blockedNotice", () => {
+	it("names the blocked channel, the fix, and both ways out", () => {
+		const out = blockedNotice("100000000000000001");
+		expect(out).toContain("Alerts for this server go to <#100000000000000001>");
+		expect(out).toContain("View Channel and Send Messages");
+		expect(out).toContain("`/subscribe`");
+		expect(out).toContain("`/unsubscribe`");
+		expect(out).toMatch(/Server Settings.*Integrations.*Remove/);
+	});
+
+	it("names the server, escaped, when sent to the owner by DM", () => {
+		expect(blockedNotice("100000000000000001", "Example *Guild*")).toContain(
+			"Alerts for **Example \\*Guild\\*** go to",
 		);
 	});
 });
@@ -178,6 +248,17 @@ describe("user-facing strings", () => {
 		MENTION_INSUFFICIENT_PRIVILEGES,
 		GUILD_BOT_ABSENT,
 		guildCannotPost("100000000000000001"),
+		blockedNotice("100000000000000001", "Example Guild"),
+		dmStatusReport({ subscribed: true, lastAlert: null, currentLevel: 1 }),
+		guildStatusReport({
+			channelId: "a",
+			channels: [
+				{ id: "a", canPost: false },
+				{ id: "b", canPost: true },
+			],
+			lastAlert: null,
+			currentLevel: 1,
+		}),
 		alertPayload({ title: "x", link: "y", pubDate: "z" }),
 		heartbeatPayload(2),
 		heartbeatPayload(null),

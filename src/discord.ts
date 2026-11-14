@@ -1,4 +1,5 @@
 import {
+	ActivityType,
 	ApplicationIntegrationType,
 	AuditLogEvent,
 	ChannelType,
@@ -42,9 +43,11 @@ import {
 	HELP,
 	type LevelChange,
 	levelChangePayload,
+	levelPresenceName,
 	MENTION_INSUFFICIENT_PRIVILEGES,
 	MENTION_UNKNOWN,
 	pingPongLine,
+	SUBSCRIBE_COMMAND_DESCRIPTION,
 	type SubscribedChannel,
 } from "./copy.js";
 import {
@@ -192,7 +195,7 @@ const ALL_INSTALLS: ApplicationIntegrationType[] = [
 export const commandDefinitions = [
 	new SlashCommandBuilder()
 		.setName("subscribe")
-		.setDescription("Receive emergency level 5 alerts (this channel in a server, or you in a DM).")
+		.setDescription(SUBSCRIBE_COMMAND_DESCRIPTION)
 		.addChannelOption((opt) =>
 			opt
 				.setName("channel")
@@ -238,6 +241,20 @@ export interface BotDeps {
 	db: DB;
 }
 
+export function updateLevelPresence(client: Client, db: DB): void {
+	if (!client.isReady()) return;
+	try {
+		const state = db.getLevelState();
+		const name = levelPresenceName(state.emergency_level, state.as_of, state.updated_at);
+		const current = client.user.presence.activities[0];
+		if (current?.name === name && current.type === ActivityType.Watching) return;
+		client.user.setActivity(name, { type: ActivityType.Watching });
+		log.debug("presence updated", { name });
+	} catch (err) {
+		log.warn("presence update failed", { err });
+	}
+}
+
 export function createClient(deps: BotDeps): Client {
 	const client = new Client({
 		// DM and direct @mention content is available without privileged MessageContent access.
@@ -254,6 +271,7 @@ export function createClient(deps: BotDeps): Client {
 
 	client.once(Events.ClientReady, (c) => {
 		log.debug("logged in", { tag: c.user.tag, id: c.user.id });
+		updateLevelPresence(c, deps.db);
 		void auditSubscriptions(c, deps.db).catch((err) =>
 			log.error("subscription audit failed", { err }),
 		);

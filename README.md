@@ -189,6 +189,8 @@ The site links to a [privacy policy](https://jamiew.github.io/apocalypse-ews-dis
 
 Keep `docs/llms.txt` aligned with the homepage. It is an optional guide for AI readers; [Google does not require it](https://developers.google.com/search/docs/appearance/ai-features). `docs/sitemap.xml` lists the three canonical pages; submit its published URL in Search Console. The share image is `docs/social-card.png` (1200×630), using the existing app icon. This site lives below `/apocalypse-ews-discord/`, so a `docs/robots.txt` would not control crawlers.
 
+Bot profile assets: [128×128 emoji](docs/ews-emoji.png) · [680×240 banner](assets/ews-banner.png).
+
 ## // REDEPLOY
 
 Every subsequent push gets shipped with the same script, from your laptop:

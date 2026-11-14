@@ -24,6 +24,7 @@
 - Replaced the older command screenshot with a status update and level-change alert. Cropped out the message box to keep the channel name private.
 - Added a downloadable 128×128 PNG emoji made from the app icon.
 - Install links now work without JavaScript, and search and share descriptions match. Added a 1200×630 social card, clearer answers about the bot, `llms.txt`, and a three-page sitemap. Expanded details stay within narrow screens.
+- Shortened website copy and increased base text from 16px to 18px. Added a 680×240 bot banner using the existing rocket pattern.
 
 ## 2026-11-08
 

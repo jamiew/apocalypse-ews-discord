@@ -34,14 +34,13 @@ body {
 	padding: 0;
 	background: var(--page-bg);
 	color: var(--page-text);
-	font: 16px/1.4 var(--body);
+	font: 18px/1.45 var(--body);
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 }
 
 body {
-	min-width: 320px;
 	margin: 8px;
 }
 
@@ -198,14 +197,6 @@ details[open] > summary.dispatch::before {
 	pointer-events: none;
 }
 
-.hero-tag {
-	margin: 0;
-	color: var(--page-muted);
-	font-family: var(--mono);
-	font-size: 0.88rem;
-	letter-spacing: 0.02em;
-}
-
 .hero-row {
 	display: grid;
 	grid-template-columns: 96px 1fr;
@@ -334,7 +325,7 @@ details[open] > summary.dispatch::before {
 	outline-offset: 2px;
 }
 
-/* Pre blocks for payload. Square, bordered, courier inside. */
+/* Preformatted examples with square borders and Courier text. */
 pre {
 	font-family: var(--mono);
 	background: #fff;
@@ -344,9 +335,6 @@ pre {
 	overflow-x: auto;
 	font-size: 0.92rem;
 	line-height: 1.5;
-}
-pre.payload {
-	background: var(--banner-bg);
 }
 
 /* Help list — semantic <dl> instead of fixed-width <pre>; wraps cleanly on
@@ -418,9 +406,6 @@ footer p {
 		font-size: 0.78rem;
 		padding: 6px 10px;
 		white-space: normal;
-	}
-	.hero-tag {
-		font-size: 0.78rem;
 	}
 	.install-grid {
 		grid-template-columns: 1fr;

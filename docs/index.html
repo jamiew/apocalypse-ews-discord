@@ -86,9 +86,6 @@
 					</div>
 					<div class="marquee__shadow" aria-hidden="true"></div>
 				</div>
-				<p class="hero-tag">
-					tracked-aircraft anomalies / rolling 24h / every level transition announced
-				</p>
 				<div class="hero-row">
 					<img src="ews-icon.jpg" alt="" width="96" height="96" />
 					<div class="title-block">
@@ -131,23 +128,18 @@
 				</div>
 				<ol class="howto">
 					<li>
-						Install the bot to a server you administer, or to your own Discord
-						account.
+						Install to a server you manage, or to your Discord account.
 					</li>
 					<li>
-						In a server channel: run <code>/subscribe</code>, or @-mention the bot
-						with <code>subscribe</code>. The bot must be installed to that server;
-						a personal install delivers by DM only.
+						For server alerts, install the bot there and run <code>/subscribe</code>.
+						Personal installs send DMs only.
 					</li>
 					<li>
-						In a DM with the bot: just send <code>subscribe</code>. No mention
-						needed.
+						For DM alerts, send <code>subscribe</code> to the bot.
 					</li>
 				</ol>
 				<p class="small muted">
-					The server invite requests View Channels and Send Messages, not Administrator.
-					No privileged Message Content access is requested. Slash commands, DMs, and
-					direct @mentions still work.
+					Server installs need View Channels and Send Messages, not Administrator.
 				</p>
 			</section>
 
@@ -163,7 +155,7 @@
 					/>
 				</a>
 				<p class="small muted">
-					Example: status update followed by an emergency-level increase from 1 to 2.
+					Example: level 1 → 2.
 				</p>
 			</section>
 
@@ -189,16 +181,16 @@
 				<h2 class="dispatch">// help</h2>
 				<dl class="cmds">
 					<dt><code>/subscribe [channel]</code></dt>
-					<dd>designate alert recipient (this channel, or you)</dd>
+					<dd>choose an alert channel or DMs</dd>
 					<dt><code>/unsubscribe</code></dt>
-					<dd>stand down</dd>
+					<dd>stop alerts</dd>
 					<dt><code>/status</code></dt>
-					<dd>subscription state + last incident</dd>
+					<dd>current level and delivery status</dd>
 					<dt><code>/help</code></dt>
-					<dd>refresher</dd>
+					<dd>show commands</dd>
 				</dl>
 				<p class="small muted">
-					@-mention the bot with the same word — same effect. In a DM, just send the word.
+					You can also @-mention the bot, or send a command by DM.
 				</p>
 			</section>
 
@@ -206,23 +198,19 @@
 				<summary class="dispatch">// more</summary>
 				<h3>What does the bot monitor?</h3>
 				<p>
-					The upstream tracks unusual private-jet activity over a rolling 24-hour window
-					and assigns an <strong>emergency level</strong> from 1 to 5. This bot checks
-					every 30 minutes and reports changes in either direction. Occasional service
-					messages and reminders are separate from alerts.
+					The upstream tracks unusual private-jet activity over 24 hours and assigns a
+					level from 1 to 5. This bot checks every 30 minutes and reports increases
+					and decreases.
 				</p>
 				<h3>Is this an official emergency service?</h3>
 				<p>
-					No. This free, independent bot relays aircraft-activity data. It does not predict
-					disasters or replace official emergency guidance. Screenshots are examples,
-					not live readings.
+					No. This free, independent bot relays aircraft data, not disaster predictions.
+					Follow official emergency guidance.
 				</p>
 				<h3>How do I stop alerts?</h3>
 				<p>
-					Run <code>/unsubscribe</code> in each subscribed channel or DM, or send
-					<code>unsubscribe</code> to the bot in a DM. You can also remove the app from
-					Discord. See the <a href="terms.html">terms of use</a> and
-					<a href="privacy.html">privacy policy</a>.
+					<code>/unsubscribe</code> stops alerts in that channel or DM. You can also
+					DM <code>unsubscribe</code> or remove the app.
 				</p>
 				<h3 class="dispatch">// alert ladder</h3>
 				<pre class="ladder">
@@ -232,17 +220,9 @@
 5 ↑   ATTENTION. EMERGENCY LEVEL 5.
 ↓     Stand-down. Emergency level returned to N.</pre>
 				<p class="small muted">
-					Each transition message also carries the upstream's text label, the
-					<code>z-score</code>, and an <code>asOf</code> timestamp. On a real level-5
-					event you'll additionally receive the full incident payload (title, link,
-					pubDate) from the upstream RSS feed.
+					Each alert includes the upstream label, <code>z-score</code>, and timestamp.
+					Level-5 incidents also include the RSS title, date, and link.
 				</p>
-				<h3 class="dispatch">// level-5 incident payload</h3>
-				<pre class="payload">
-ATTENTION. EMERGENCY LEVEL 5.
-{title}
-{pubDate}
-{link}</pre>
 				<p class="small muted">
 					Source feed:
 					<a href="https://ews.kylemcdonald.net/rss.xml" rel="noopener">rss.xml</a> ·
@@ -250,8 +230,8 @@ ATTENTION. EMERGENCY LEVEL 5.
 					<a href="https://t.me/apocalypse_ews" rel="noopener">@apocalypse_ews</a>.
 				</p>
 				<p class="small muted">
-					Commands, DMs, and direct @mentions are logged for operation and troubleshooting.
-					Unsubscribing stops notifications; it does not erase past records.
+					Bot commands, DM text, and direct @mentions are logged.
+					Unsubscribing does not delete old records.
 				</p>
 			</details>
 

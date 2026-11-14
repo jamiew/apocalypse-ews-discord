@@ -19,6 +19,11 @@
 - Operator webhook embeds have per-event layouts: a clear title (`SERVER INSTALLED`, `LEVEL 1 → 2`, `SUBSCRIPTION AUDIT`), the key fact in the description, and inline fields for counts. Empty, default, and "Not available" details are hidden; timestamps render as Discord dates; errors sit in a code block. Unknown events fall back to a generic layout.
 - Webhook sends are batched: notices within one second share a message (up to 10 embeds), and a 429 waits for `Retry-After` and retries twice. On November 14, 2026, the alert's error burst hit the rate limit and many failure notices never arrived.
 
+### Website
+
+- Replaced the older command screenshot with a status update and level-change alert. Cropped out the message box to keep the channel name private.
+- Added a downloadable 128×128 PNG emoji made from the app icon.
+
 ## 2026-11-08
 
 ### Notifications

@@ -3,6 +3,7 @@ import { type APIEmbed, escapeMarkdown } from "discord.js";
 // Tone: deadpan, technical, no emojis, no exclamation points. Wryness from framing.
 
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
+export const INSTALL_URL = "https://jamiew.github.io/apocalypse-ews-discord/";
 
 const colors: Record<string, number> = {
 	debug: 0x747f8d,
@@ -66,6 +67,17 @@ export const GUILD_UNSUBSCRIBE_OK =
 	"Unsubscribed. Full removal: Server Settings → Integrations → Apocalypse EWS → Remove.";
 
 export const GUILD_NOT_SUBSCRIBED = "Not subscribed.";
+
+// User-installed commands run in servers the bot never joined; it cannot post there.
+export const GUILD_BOT_ABSENT = [
+	"NOT DEPLOYED. The bot is not a member of this server and cannot post here.",
+	`Add it to the server: <${INSTALL_URL}>`,
+	"Or run `/subscribe` in a DM with the bot to receive alerts by DM.",
+].join("\n");
+
+export function guildCannotPost(channelId: string): string {
+	return `CANNOT TRANSMIT. The bot needs View Channel and Send Messages in <#${channelId}>. Grant both, then run \`/subscribe\` again.`;
+}
 
 export const HELP = [
 	`APOCALYPSE EWS. Source: ${SOURCE_URL}`,

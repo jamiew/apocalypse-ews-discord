@@ -21,7 +21,7 @@ interface MockClient {
 	usersSent: SendCall[];
 	channelsSent: SendCall[];
 	failUser: (id: string) => void;
-	failChannel: (id: string) => void;
+	failChannel: (id: string, code?: number) => void;
 	missingChannel: (id: string) => void;
 }
 
@@ -29,7 +29,7 @@ function makeMockClient(): MockClient {
 	const usersSent: SendCall[] = [];
 	const channelsSent: SendCall[] = [];
 	const failUserIds = new Set<string>();
-	const failChannelIds = new Set<string>();
+	const failChannelIds = new Map<string, number | undefined>();
 	const missingChannelIds = new Set<string>();
 
 	const client = {
@@ -46,7 +46,11 @@ function makeMockClient(): MockClient {
 				if (missingChannelIds.has(id)) return null;
 				return {
 					send: async (body: string) => {
-						if (failChannelIds.has(id)) throw new Error(`channel ${id} unsendable`);
+						if (failChannelIds.has(id)) {
+							throw Object.assign(new Error(`channel ${id} unsendable`), {
+								code: failChannelIds.get(id),
+							});
+						}
 						channelsSent.push({ id, body });
 					},
 				};
@@ -59,7 +63,7 @@ function makeMockClient(): MockClient {
 		usersSent,
 		channelsSent,
 		failUser: (id) => failUserIds.add(id),
-		failChannel: (id) => failChannelIds.add(id),
+		failChannel: (id, code) => failChannelIds.set(id, code),
 		missingChannel: (id) => missingChannelIds.add(id),
 	};
 }
@@ -160,6 +164,24 @@ describe("fanOutAlert", () => {
 		const result = await fanOutAlert(mock.client, deps(), ALERT);
 		expect(result).toEqual({ sent: 0, failed: 1 });
 		expect(db.countEvents("alert_dispatch_fail")).toBe(1);
+	});
+
+	it("unsubscribes a deleted channel but keeps one failing for other reasons", async () => {
+		seedSubscribers(db, [
+			{ kind: "guild_channel", id: "deleted-channel", guild: "g1" },
+			{ kind: "guild_channel", id: "flaky-channel", guild: "g1" },
+		]);
+		const mock = makeMockClient();
+		mock.failChannel("deleted-channel", 10003);
+		mock.failChannel("flaky-channel");
+
+		const result = await fanOutAlert(mock.client, deps(), ALERT);
+		expect(result).toEqual({ sent: 0, failed: 2 });
+		expect(db.listActive().map((s) => s.discord_id)).toEqual(["flaky-channel"]);
+		expect(db.countEvents("subscriber_pruned")).toBe(1);
+
+		// The next fan-out no longer tries the deleted channel.
+		expect(await fanOutAlert(mock.client, deps(), ALERT)).toEqual({ sent: 0, failed: 1 });
 	});
 
 	it("records one alert_dispatch_ok per success and one alert_dispatch_fail per failure", async () => {

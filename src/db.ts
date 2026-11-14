@@ -34,6 +34,7 @@ export type EventKind =
 	| "heartbeat_fail"
 	| "heartbeat_skipped"
 	| "guild_welcome_failed"
+	| "subscriber_pruned"
 	| "error";
 
 export interface EventRecord {
@@ -47,6 +48,8 @@ export interface EventRecord {
 }
 
 export type SubscribeVia = "command" | "dm" | "mention" | "install";
+// Delivery can never succeed again without the user or server acting first.
+export type PruneReason = "not_in_guild" | "unknown_channel" | "unknown_user" | "no_mutual_guild";
 export type DmIntent = "subscribe" | "unsubscribe" | "status" | "help" | "other";
 export type MentionIntent = DmIntent;
 
@@ -123,6 +126,7 @@ export interface EventPayloadByKind {
 		reason: "no_channel" | "missing_access" | "other";
 		err?: unknown;
 	};
+	subscriber_pruned: { kind: SubscriberKind; reason: PruneReason; err?: unknown };
 	error: { op: string; command?: string; err: unknown };
 }
 

@@ -7,12 +7,14 @@ import {
 	PermissionsBitField,
 } from "discord.js";
 import {
+	botCanPost,
 	canManageGuildSubscriptions,
 	classifyDmText,
 	classifyMentionText,
 	classifyWelcomeError,
 	commandDefinitions,
 	pickWelcomeChannelFrom,
+	pruneReasonFor,
 	stripMention,
 	type WelcomeChannelCandidate,
 } from "./discord.js";
@@ -191,5 +193,56 @@ describe("classifyWelcomeError", () => {
 		expect(classifyWelcomeError({ code: 50013 })).toBe("other");
 		expect(classifyWelcomeError(null)).toBe("other");
 		expect(classifyWelcomeError(undefined)).toBe("other");
+	});
+});
+
+describe("pruneReasonFor", () => {
+	const channel = { kind: "guild_channel", guild_id: "guild-1" } as const;
+	const dm = { kind: "dm", guild_id: null } as const;
+	const inGuild = () => true;
+	const notInGuild = () => false;
+
+	it("prunes channels that no longer exist", () => {
+		expect(pruneReasonFor({ code: 10003 }, channel, inGuild)).toBe("unknown_channel");
+	});
+
+	it("prunes Missing Access only when the bot is not in the server", () => {
+		expect(pruneReasonFor({ code: 50001 }, channel, notInGuild)).toBe("not_in_guild");
+		expect(pruneReasonFor({ code: 50001 }, channel, inGuild)).toBeNull();
+		expect(pruneReasonFor({ code: 50001 }, { ...channel, guild_id: null }, notInGuild)).toBeNull();
+	});
+
+	it("keeps channels with fixable permissions", () => {
+		expect(pruneReasonFor({ code: 50013 }, channel, notInGuild)).toBeNull();
+	});
+
+	it("prunes DMs to unknown or unreachable users, but not closed DMs", () => {
+		expect(pruneReasonFor({ code: 10013 }, dm, inGuild)).toBe("unknown_user");
+		expect(pruneReasonFor({ code: 50278 }, dm, inGuild)).toBe("no_mutual_guild");
+		expect(pruneReasonFor({ code: 50007 }, dm, inGuild)).toBeNull();
+		expect(pruneReasonFor({ code: 10003 }, dm, inGuild)).toBeNull();
+	});
+
+	it("keeps subscribers on transient errors", () => {
+		expect(pruneReasonFor(new Error("socket hang up"), channel, notInGuild)).toBeNull();
+		expect(pruneReasonFor({ status: 500 }, dm, inGuild)).toBeNull();
+	});
+});
+
+describe("botCanPost", () => {
+	const { ViewChannel, SendMessages, SendMessagesInThreads } = PermissionFlagsBits;
+
+	it("requires View Channel and Send Messages", () => {
+		expect(botCanPost(new PermissionsBitField([ViewChannel, SendMessages]), false)).toBe(true);
+		expect(botCanPost(new PermissionsBitField([SendMessages]), false)).toBe(false);
+		expect(botCanPost(new PermissionsBitField([ViewChannel]), false)).toBe(false);
+		expect(botCanPost(null, false)).toBe(false);
+	});
+
+	it("uses Send Messages in Threads for threads", () => {
+		expect(botCanPost(new PermissionsBitField([ViewChannel, SendMessages]), true)).toBe(false);
+		expect(botCanPost(new PermissionsBitField([ViewChannel, SendMessagesInThreads]), true)).toBe(
+			true,
+		);
 	});
 });

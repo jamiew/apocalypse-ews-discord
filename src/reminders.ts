@@ -1,7 +1,7 @@
 import type { Client } from "discord.js";
 import { ANNUAL_REMINDER } from "./copy.js";
-import { type DB, subscriberAddress } from "./db.js";
-import { sendToSubscriber } from "./discord.js";
+import { type DB, type PruneReason, subscriberAddress } from "./db.js";
+import { pruneIfDead, reportPruned, sendToSubscriber } from "./discord.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("reminders");
@@ -14,6 +14,7 @@ export async function sendDueReminders(args: {
 }): Promise<{ sent: number; failed: number }> {
 	const now = args.now ?? new Date();
 	const due = args.db.selectDueForReminder(now);
+	const pruned: PruneReason[] = [];
 	let sent = 0;
 	let failed = 0;
 	for (const sub of due) {
@@ -29,13 +30,16 @@ export async function sendDueReminders(args: {
 			sent++;
 		} catch (err) {
 			failed++;
-			log.error("reminder failed", { err, kind: sub.kind, address: sub.discord_id });
 			args.db.recordEvent({
 				kind: "reminder_fail",
 				...where,
 				payload: { kind: sub.kind, err },
 			});
+			const reason = pruneIfDead(args.client, args.db, sub, err);
+			if (reason) pruned.push(reason);
+			else log.error("reminder failed", { err, kind: sub.kind, address: sub.discord_id });
 		}
 	}
+	reportPruned("reminder", pruned);
 	return { sent, failed };
 }

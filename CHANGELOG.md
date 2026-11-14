@@ -25,6 +25,7 @@
 - Added a downloadable 128×128 PNG emoji made from the app icon.
 - Install links now work without JavaScript, and search and share descriptions match. Added a 1200×630 social card, clearer answers about the bot, `llms.txt`, and a three-page sitemap. Expanded details stay within narrow screens.
 - Shortened website copy and increased base text from 16px to 18px. Added a 680×240 bot banner using the existing rocket pattern.
+- Renamed “More” to “FAQ” and expanded it by default. Grouped footer links into source code, policies, and creator credits.
 
 ## 2026-11-08
 

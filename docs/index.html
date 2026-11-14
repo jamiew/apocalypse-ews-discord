@@ -7,16 +7,13 @@
 		<title>Apocalypse EWS / Discord bot — every level transition announced</title>
 		<meta
 			name="description"
-			content="A Discord bot that announces every emergency-level transition from the Apocalypse Early Warning System. Tracked-aircraft anomalies over a rolling 24-hour window. Increasing urgency as it climbs."
+			content="Free Discord bot for Apocalypse Early Warning System alerts. Get every emergency-level change in server channels or DMs."
 		/>
 		<meta name="author" content="jamiew" />
 		<meta name="theme-color" content="#dbd4cc" />
-		<meta
-			name="keywords"
-			content="apocalypse, early warning system, discord bot, aircraft tracking, private jets, emergency level 5, kyle mcdonald, ews"
-		/>
 
 		<link rel="canonical" href="https://jamiew.github.io/apocalypse-ews-discord/" />
+		<link rel="describedby" href="llms.txt" type="text/plain" />
 		<link rel="icon" href="ews-icon.jpg" />
 		<link rel="apple-touch-icon" href="ews-icon.jpg" />
 
@@ -26,35 +23,36 @@
 		<meta property="og:title" content="Apocalypse EWS / Discord bot" />
 		<meta
 			property="og:description"
-			content="Every emergency-level transition announced in your subscribed Discord channels and DMs. Increasing urgency as it climbs. Most days the level stays at 1."
+			content="Free Discord bot for Apocalypse Early Warning System alerts. Get every emergency-level change in server channels or DMs."
 		/>
 		<meta property="og:url" content="https://jamiew.github.io/apocalypse-ews-discord/" />
 		<meta
 			property="og:image"
-			content="https://jamiew.github.io/apocalypse-ews-discord/ews-icon.jpg"
+			content="https://jamiew.github.io/apocalypse-ews-discord/social-card.png"
 		/>
-		<meta property="og:image:width" content="320" />
-		<meta property="og:image:height" content="320" />
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
 		<meta
 			property="og:image:alt"
-			content="Yellow radiation symbol — icon for the Apocalypse EWS Discord bot"
+			content="Apocalypse EWS icon beside text: Discord bot. Every emergency-level change. Server channels and DMs."
 		/>
 		<meta property="og:locale" content="en_US" />
 
 		<!-- Twitter card -->
-		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content="Apocalypse EWS / Discord bot" />
 		<meta
 			name="twitter:description"
-			content="Every emergency-level transition in your Discord. Tracked-aircraft anomalies, rolling 24h. Increasing urgency as it climbs."
+			content="Free Discord bot for Apocalypse Early Warning System alerts. Get every emergency-level change in server channels or DMs."
 		/>
 		<meta
 			name="twitter:image"
-			content="https://jamiew.github.io/apocalypse-ews-discord/ews-icon.jpg"
+			content="https://jamiew.github.io/apocalypse-ews-discord/social-card.png"
 		/>
 		<meta
 			name="twitter:image:alt"
-			content="Yellow radiation symbol — icon for the Apocalypse EWS Discord bot"
+			content="Apocalypse EWS icon beside text: Discord bot. Every emergency-level change. Server channels and DMs."
 		/>
 
 		<link rel="stylesheet" href="style.css" />
@@ -64,10 +62,13 @@
 				"@context": "https://schema.org",
 				"@type": "SoftwareApplication",
 				"name": "Apocalypse EWS Discord bot",
-				"description": "A Discord bot that announces every emergency-level transition from the Apocalypse Early Warning System.",
+				"description": "Free Discord bot for Apocalypse Early Warning System alerts. Get every emergency-level change in server channels or DMs.",
 				"url": "https://jamiew.github.io/apocalypse-ews-discord/",
 				"applicationCategory": "CommunicationApplication",
 				"operatingSystem": "Discord",
+				"image": "https://jamiew.github.io/apocalypse-ews-discord/ews-icon.jpg",
+				"screenshot": "https://jamiew.github.io/apocalypse-ews-discord/screenshot-alert.webp",
+				"isAccessibleForFree": true,
 				"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
 				"author": { "@type": "Person", "name": "jamiew" }
 			}
@@ -93,9 +94,9 @@
 					<div class="title-block">
 						<h1>Apocalypse EWS / Discord bot</h1>
 						<p class="tagline">
-							Mirror of the
-							<a href="https://ews.kylemcdonald.net" rel="noopener">upstream EWS</a>.
-							Most days the level stays at 1.
+							Free Discord alerts from the
+							<a href="https://ews.kylemcdonald.net" rel="noopener">Apocalypse Early Warning System</a>.
+							Every level change, in server channels or DMs.
 						</p>
 					</div>
 				</div>
@@ -103,14 +104,24 @@
 
 			<section class="panel">
 				<div class="install-grid">
-					<a class="btn" id="btn-server" href="#" rel="noopener">
+					<a
+						class="btn"
+						id="btn-server"
+						href="https://discord.com/oauth2/authorize?client_id=1499824619333353682&amp;scope=bot%20applications.commands&amp;permissions=3072&amp;integration_type=0"
+						rel="noopener"
+					>
 						<span class="btn-icon" aria-hidden="true">+</span>
 						<span class="btn-copy">
 							<span class="btn-label">Install to server</span>
 							<span class="btn-sub">Alerts in your server channels</span>
 						</span>
 					</a>
-					<a class="btn" id="btn-user" href="#" rel="noopener">
+					<a
+						class="btn"
+						id="btn-user"
+						href="https://discord.com/oauth2/authorize?client_id=1499824619333353682&amp;scope=applications.commands&amp;integration_type=1"
+						rel="noopener"
+					>
 						<span class="btn-icon" aria-hidden="true">+</span>
 						<span class="btn-copy">
 							<span class="btn-label">Install for yourself</span>
@@ -138,10 +149,6 @@
 					No privileged Message Content access is requested. Slash commands, DMs, and
 					direct @mentions still work.
 				</p>
-				<p id="config-warning">
-					Client id not set. Edit <code>docs/index.html</code> and replace
-					<code>YOUR_DISCORD_CLIENT_ID</code>.
-				</p>
 			</section>
 
 			<section class="panel">
@@ -156,7 +163,7 @@
 					/>
 				</a>
 				<p class="small muted">
-					A status update followed by an emergency-level increase from 1 to 2.
+					Example: status update followed by an emergency-level increase from 1 to 2.
 				</p>
 			</section>
 
@@ -197,11 +204,25 @@
 
 			<details class="panel more">
 				<summary class="dispatch">// more</summary>
+				<h3>What does the bot monitor?</h3>
 				<p>
 					The upstream tracks unusual private-jet activity over a rolling 24-hour window
-					and assigns an <strong>emergency level</strong> from 1 to 5. This bot polls the
-					upstream every 30 minutes and announces every transition — both rising and
-					falling. Most days the level stays at 1 and you hear nothing.
+					and assigns an <strong>emergency level</strong> from 1 to 5. This bot checks
+					every 30 minutes and reports changes in either direction. Occasional service
+					messages and reminders are separate from alerts.
+				</p>
+				<h3>Is this an official emergency service?</h3>
+				<p>
+					No. This free, independent bot relays aircraft-activity data. It does not predict
+					disasters or replace official emergency guidance. Screenshots are examples,
+					not live readings.
+				</p>
+				<h3>How do I stop alerts?</h3>
+				<p>
+					Run <code>/unsubscribe</code> in each subscribed channel or DM, or send
+					<code>unsubscribe</code> to the bot in a DM. You can also remove the app from
+					Discord. See the <a href="terms.html">terms of use</a> and
+					<a href="privacy.html">privacy policy</a>.
 				</p>
 				<h3 class="dispatch">// alert ladder</h3>
 				<pre class="ladder">
@@ -243,27 +264,11 @@ ATTENTION. EMERGENCY LEVEL 5.
 					<a href="https://github.com/kylemcdonald/ews" rel="noopener">upstream source</a> ·
 					<a href="privacy.html">privacy policy</a> ·
 					<a href="terms.html">terms of use</a> ·
+					<a href="llms.txt">llms.txt</a> ·
+					<a href="sitemap.xml">sitemap</a> ·
 					standing by.
 				</p>
 			</footer>
 		</div>
-
-		<script>
-			const CLIENT_ID = "1499824619333353682";
-			(function () {
-				if (!CLIENT_ID || CLIENT_ID === "YOUR_DISCORD_CLIENT_ID") return;
-				const id = encodeURIComponent(CLIENT_ID);
-				document.getElementById("btn-server").href =
-					`https://discord.com/oauth2/authorize?client_id=${id}` +
-					`&scope=${encodeURIComponent("bot applications.commands")}` +
-					`&permissions=3072&integration_type=0`;
-				document.getElementById("btn-user").href =
-					`https://discord.com/oauth2/authorize?client_id=${id}` +
-					`&scope=${encodeURIComponent("applications.commands")}` +
-					`&integration_type=1`;
-				const warn = document.getElementById("config-warning");
-				if (warn) warn.style.display = "none";
-			})();
-		</script>
 	</body>
 </html>

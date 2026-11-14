@@ -183,9 +183,11 @@ The same first-run commands without `DOCKER_CONTEXT`. Running Docker this way ne
 
 ## // PAGES
 
-Static splash at `/docs/`. GitHub → Settings → Pages → `main` / `/docs`. The install buttons read a single `CLIENT_ID` constant in `docs/index.html`.
+GitHub Pages serves `/docs/` from `main`. The two static install links in `docs/index.html` must use the same Discord application ID.
 
 The site links to a [privacy policy](https://jamiew.github.io/apocalypse-ews-discord/privacy.html) and [terms of use](https://jamiew.github.io/apocalypse-ews-discord/terms.html). Keep these pages current when data handling changes. The bot stores DM and mention text, commands, Discord IDs, and install details; unsubscribing does not delete old records.
+
+Keep `docs/llms.txt` aligned with the homepage. It is an optional guide for AI readers; [Google does not require it](https://developers.google.com/search/docs/appearance/ai-features). `docs/sitemap.xml` lists the three canonical pages; submit its published URL in Search Console. The share image is `docs/social-card.png` (1200×630), using the existing app icon. This site lives below `/apocalypse-ews-discord/`, so a `docs/robots.txt` would not control crawlers.
 
 ## // REDEPLOY
 

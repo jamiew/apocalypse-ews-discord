@@ -1,7 +1,7 @@
 import type { Client } from "discord.js";
 import { heartbeatPayload } from "./copy.js";
-import { type DB, subscriberAddress } from "./db.js";
-import { sendToSubscriber } from "./discord.js";
+import { type DB, type PruneReason, subscriberAddress } from "./db.js";
+import { pruneIfDead, reportPruned, sendToSubscriber } from "./discord.js";
 import { childLogger } from "./log.js";
 
 const log = childLogger("heartbeat");
@@ -71,6 +71,7 @@ export async function sendHeartbeat(args: {
 	const level = args.db.getLevelState().emergency_level;
 	const body = heartbeatPayload(level);
 	const subs = args.db.listActive("guild_channel");
+	const pruned: PruneReason[] = [];
 	let sent = 0;
 	let failed = 0;
 	for (const sub of subs) {
@@ -85,13 +86,16 @@ export async function sendHeartbeat(args: {
 			});
 		} catch (err) {
 			failed++;
-			log.error("heartbeat failed", { err, channelId: sub.discord_id });
 			args.db.recordEvent({
 				kind: "heartbeat_fail",
 				...where,
 				payload: { kind: sub.kind, level, err },
 			});
+			const reason = pruneIfDead(args.client, args.db, sub, err);
+			if (reason) pruned.push(reason);
+			else log.error("heartbeat failed", { err, channelId: sub.discord_id });
 		}
 	}
+	reportPruned("heartbeat", pruned);
 	return { fired: true, sent, failed };
 }

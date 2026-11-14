@@ -34,7 +34,7 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 ## // INITIALIZE
 
 1. <https://discord.com/developers/applications> → New App. Bot tab: Reset Token; leave all **Privileged Gateway Intents** off. DMs and direct @mentions work without Message Content Intent. App ID = `DISCORD_CLIENT_ID`.
-2. Installation tab → enable **User Install** (so the bot installs to user accounts, not just guilds).
+2. Installation tab → enable **User Install** (so the bot installs to user accounts, not just guilds). Under **Default Install Settings → Guild Install**, set scopes `applications.commands` + `bot` and permissions View Channel + Send Messages (3072). Without `bot`, Discord's "Add App" adds commands to a server but not the bot, and the bot can never post there.
 3. `cp .env.sample .env`, fill `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`. Optional: `INFO_WEBHOOK_URL`, `ERROR_WEBHOOK_URL`, `TEST_GUILD_ID` (set in dev for instant command propagation).
 4. Invite the bot to your test server **before** running `register-commands`. Guild-scoped registration requires the bot already in the guild.
 

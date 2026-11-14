@@ -14,6 +14,7 @@ import {
 	PermissionFlagsBits,
 	type PermissionsBitField,
 	REST,
+	RESTJSONErrorCodes,
 	Routes,
 	SlashCommandBuilder,
 	type Snowflake,
@@ -28,10 +29,12 @@ import {
 	DM_SUBSCRIBE_OK,
 	DM_UNSUBSCRIBE_OK,
 	GUILD_ALREADY_SUBSCRIBED,
+	GUILD_BOT_ABSENT,
 	GUILD_NOT_SUBSCRIBED,
 	GUILD_SUBSCRIBE_OK,
 	GUILD_UNSUBSCRIBE_OK,
 	GUILD_WELCOME,
+	guildCannotPost,
 	HELP,
 	type LevelChange,
 	levelChangePayload,
@@ -45,6 +48,7 @@ import {
 	type DmIntent,
 	type EventPayloadByKind,
 	type MentionIntent,
+	type PruneReason,
 	type Subscriber,
 	type SubscriberKind,
 	type SubscribeVia,
@@ -246,6 +250,7 @@ export function createClient(deps: BotDeps): Client {
 
 	client.once(Events.ClientReady, (c) => {
 		log.debug("logged in", { tag: c.user.tag, id: c.user.id });
+		auditSubscriptions(c, deps.db);
 	});
 
 	client.on(Events.GuildCreate, (guild) => {
@@ -264,7 +269,9 @@ export function createClient(deps: BotDeps): Client {
 			tenureMs,
 		};
 		deps.db.recordEvent({ kind: "guild_delete", guildId: guild.id, payload });
-		log.info("guild remove", { guildId: guild.id, ...payload });
+		const subs = deps.db.listActive("guild_channel").filter((s) => s.guild_id === guild.id);
+		for (const sub of subs) pruneSubscriber(deps.db, sub, "not_in_guild");
+		log.info("guild remove", { guildId: guild.id, ...payload, prunedSubscriptions: subs.length });
 	});
 
 	client.on(Events.InteractionCreate, (interaction) => {
@@ -404,10 +411,118 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 }
 
 export function classifyWelcomeError(err: unknown): "missing_access" | "other" {
-	if (err != null && typeof err === "object" && "code" in err && err.code === 50001) {
-		return "missing_access";
+	return discordErrorCode(err) === RESTJSONErrorCodes.MissingAccess ? "missing_access" : "other";
+}
+
+function discordErrorCode(err: unknown): unknown {
+	return err != null && typeof err === "object" && "code" in err ? err.code : undefined;
+}
+
+export function botCanPost(
+	perms: Readonly<PermissionsBitField> | null,
+	isThread: boolean,
+): boolean {
+	const send = isThread
+		? PermissionFlagsBits.SendMessagesInThreads
+		: PermissionFlagsBits.SendMessages;
+	return perms?.has([PermissionFlagsBits.ViewChannel, send]) === true;
+}
+
+// Only errors no retry can fix. Missing Access inside a server the bot still belongs to is a
+// channel permission an admin can restore, so that subscription stays and keeps reporting.
+export function pruneReasonFor(
+	err: unknown,
+	sub: Pick<Subscriber, "kind" | "guild_id">,
+	botInGuild: (guildId: Snowflake) => boolean,
+): PruneReason | null {
+	const code = discordErrorCode(err);
+	if (sub.kind === "dm") {
+		if (code === RESTJSONErrorCodes.UnknownUser) return "unknown_user";
+		if (code === RESTJSONErrorCodes.CannotSendMessagesToThisUserDueToHavingNoMutualGuilds) {
+			return "no_mutual_guild";
+		}
+		return null;
 	}
-	return "other";
+	if (code === RESTJSONErrorCodes.UnknownChannel) return "unknown_channel";
+	if (
+		code === RESTJSONErrorCodes.MissingAccess &&
+		sub.guild_id !== null &&
+		!botInGuild(sub.guild_id)
+	) {
+		return "not_in_guild";
+	}
+	return null;
+}
+
+function pruneSubscriber(db: DB, sub: Subscriber, reason: PruneReason, err?: unknown): void {
+	if (!db.markUnsubscribed(sub.kind, sub.discord_id)) return;
+	db.recordEvent({
+		kind: "subscriber_pruned",
+		...subscriberAddress(sub),
+		payload: { kind: sub.kind, reason, err },
+	});
+	log.debug("subscription pruned", {
+		kind: sub.kind,
+		reason,
+		address: sub.discord_id,
+		guildId: sub.guild_id,
+	});
+}
+
+// Unsubscribes `sub` when `err` means delivery can never succeed; returns the reason, else null.
+export function pruneIfDead(
+	client: Client,
+	db: DB,
+	sub: Subscriber,
+	err: unknown,
+): PruneReason | null {
+	const reason = pruneReasonFor(err, sub, (id) => client.guilds.cache.has(id));
+	if (reason) pruneSubscriber(db, sub, reason, err);
+	return reason;
+}
+
+export function reportPruned(source: string, reasons: readonly PruneReason[]): void {
+	if (reasons.length === 0) return;
+	const byReason: Partial<Record<PruneReason, number>> = {};
+	for (const r of reasons) byReason[r] = (byReason[r] ?? 0) + 1;
+	log.info("dead subscriptions pruned", { source, count: reasons.length, ...byReason });
+}
+
+// READY delivers every guild the bot belongs to, so a subscription whose server is absent
+// can never deliver: the bot was removed while offline, or `/subscribe` ran as a user-installed
+// command in a server that never added the bot.
+export function auditSubscriptions(client: Client<true>, db: DB): void {
+	// An empty guild list means a broken READY, not removal from every server.
+	if (client.guilds.cache.size === 0) return;
+	const pruned: PruneReason[] = [];
+	let reachable = 0;
+	let cannotPost = 0;
+	let unverified = 0;
+	for (const sub of db.listActive("guild_channel")) {
+		const guild = sub.guild_id === null ? undefined : client.guilds.cache.get(sub.guild_id);
+		if (sub.guild_id !== null && !guild) {
+			pruneSubscriber(db, sub, "not_in_guild");
+			pruned.push("not_in_guild");
+			continue;
+		}
+		const channel = guild?.channels.cache.get(sub.discord_id);
+		const me = guild?.members.me;
+		if (!channel || !me) {
+			unverified++;
+		} else if (botCanPost(channel.permissionsFor(me), channel.isThread())) {
+			reachable++;
+		} else {
+			cannotPost++;
+		}
+	}
+	reportPruned("startup", pruned);
+	log.info("subscriptions audited", {
+		guilds: client.guilds.cache.size,
+		reachable,
+		cannotPost,
+		unverified,
+		dm: db.listActive("dm").length,
+	});
 }
 
 function recordWelcomeFailure(
@@ -481,10 +596,22 @@ async function cmdSubscribe(
 ): Promise<void> {
 	if (interaction.guildId) {
 		if (!(await requireManageGuild(interaction))) return;
+		if (!interaction.inCachedGuild()) {
+			await interaction.reply({ content: GUILD_BOT_ABSENT, flags: MessageFlags.Ephemeral });
+			return;
+		}
 		const target = interaction.options.getChannel("channel") ?? interaction.channel;
-		if (!target || !("id" in target)) {
+		if (!target) {
 			await interaction.reply({
 				content: "Could not resolve a channel.",
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+		const me = interaction.guild.members.me;
+		if (!me || !botCanPost(target.permissionsFor(me), target.isThread())) {
+			await interaction.reply({
+				content: guildCannotPost(target.id),
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
@@ -507,8 +634,8 @@ async function cmdSubscribe(
 			via: "command",
 			guildId: interaction.guildId,
 			channelId: target.id,
-			guildName: interaction.guild?.name,
-			channelName: "name" in target ? (target.name ?? undefined) : undefined,
+			guildName: interaction.guild.name,
+			channelName: target.name,
 			userId: interaction.user.id,
 			userTag: interaction.user.tag,
 			reactivated: result.reactivated,
@@ -801,6 +928,7 @@ async function fanOut(
 	buildMeta: (sub: Subscriber) => AlertDispatchPayload,
 ): Promise<{ sent: number; failed: number }> {
 	const subs = deps.db.listActive();
+	const pruned: PruneReason[] = [];
 	let sent = 0;
 	let failed = 0;
 	for (const sub of subs) {
@@ -812,14 +940,17 @@ async function fanOut(
 			deps.db.recordEvent({ kind: "alert_dispatch_ok", ...where, payload: meta });
 		} catch (err) {
 			failed++;
-			log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
 			deps.db.recordEvent({
 				kind: "alert_dispatch_fail",
 				...where,
 				payload: { ...meta, err },
 			});
+			const reason = pruneIfDead(client, deps.db, sub, err);
+			if (reason) pruned.push(reason);
+			else log.error("deliver failed", { err, kind: sub.kind, address: sub.discord_id });
 		}
 	}
+	reportPruned("alert", pruned);
 	return { sent, failed };
 }
 

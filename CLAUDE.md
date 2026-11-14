@@ -85,6 +85,8 @@ discord.js interactions are already typed. SQLite rows are typed via `query<Resu
 - **Guild-scoped registration requires the bot already in the guild.** Invite first, register second. Otherwise: `DiscordAPIError[50001] Missing Access`.
 - `setDMPermission` is deprecated — use `setContexts(...)`. Already migrated.
 - User-install is real: `setIntegrationTypes([GuildInstall, UserInstall])` + `setContexts([Guild, BotDM, PrivateChannel])`. Handlers branch on `interaction.guildId`.
+- A guild `interaction` does not mean the bot is in that guild. User-installed commands run anywhere, but the bot can post only where it is a member with View Channel + Send Messages. `/subscribe` checks `inCachedGuild()` and `botCanPost` before saving. The portal's Guild Install must keep the `bot` scope (README "Initialize").
+- Dead subscriptions prune themselves (`subscriber_pruned` event): on `GuildDelete`, at READY for servers the bot is no longer in, and on send errors no retry can fix (`pruneReasonFor`). Missing Access or Missing Permissions in a server the bot still belongs to stays subscribed and keeps reporting, because an admin can fix it.
 - `seen_alerts` skips on restart by design — don't "fix" the dedup unless an alert was actually missed.
 - `lastBuildDate` in the live RSS feed is `Thu, 01 Jan 1970 00:00:00 GMT` and items are absent. Not a bug. Test with synthetic feeds.
 - The level-poller's first observation does NOT fire `onLevelChange` (no previous to compare against; bot booting is not a level change).

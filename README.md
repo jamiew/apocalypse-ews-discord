@@ -54,6 +54,47 @@ If Message Content Intent is already disabled while the old build is running, de
 
 The privacy policy must reflect actual storage: subscriber IDs and status, server/channel/user metadata, command activity, and DM/direct-mention text are stored in SQLite and local logs. Webhook copies omit message bodies and credentials, but retain diagnostic metadata. Unsubscribing changes subscription status; it does not delete past records. There is no automatic retention or deletion schedule in this code. State the team's actual retention policy and contact/deletion process rather than promising automatic erasure.
 
+## // APP DIRECTORY
+
+Listing in the [App Directory](https://discord.com/application-directory) requires a verified app plus the checklist under **Discovery → Discovery Status** ([Discord's guide](https://docs.discord.com/developers/discovery/enabling-discovery)). The bot token can read the checklist state: `GET /applications/@me` returns `discovery_eligibility_flags` (bits [documented by Userdoccers](https://docs.discord.food/resources/application#application-discovery-eligibility-flags)) and `discoverability_state` (1 means ineligible, 3 means listed).
+
+Status on November 14, 2026: the app was verified, and its description, tags, terms, privacy policy, install parameters, slash commands, and owner MFA all passed. Four items were still missing, and all four need the portal:
+
+- **Support server** (`SUPPORT_GUILD`): set one under **Discovery → Discovery Settings**. Discord recommends a dedicated server or channel for user support.
+- **Supported language** (`SUPPORTED_LOCALES`): pick English.
+- **Short description** (`SAFE_SHORT_DESCRIPTION`): the summary shown in search, 200 characters at most.
+- **Safe commands** (`SAFE_COMMANDS`): not set even though all four commands are plain words. It may update after the rest of the settings are saved. If not, ask [developer support](https://dis.gd/developer-support/discovery).
+
+Then click **Enable Discovery** at the bottom of **Discovery Status**. The listing can take up to 24 hours to appear. Suggested category: Utilities. Tags (set through the API): `apocalypse`, `alerts`, `early warning`, `notifications`, `news`.
+
+Short description:
+
+```text
+Private jets leaving cities as an apocalypse early warning. Posts every emergency-level change, 1 to 5, to your server or your DMs.
+```
+
+Expanded description (Markdown):
+
+```markdown
+**APOCALYPSE EARLY WARNING SYSTEM.**
+
+If something terrible were about to happen, people with private jets would likely leave first. The [Apocalypse EWS](https://ews.kylemcdonald.net) tracks private-aircraft departures from major cities and reports an emergency level from 1 to 5. Most days it is 1.
+
+This app brings that signal to Discord.
+
+**What it does**
+- Announces every emergency-level change, rising or falling.
+- Sends level 5 incident alerts as they happen.
+- Works in server channels or in your DMs.
+
+**Getting started**
+- Server: add the app. It posts a welcome note and subscribes that channel. Use `/subscribe #channel` to pick another.
+- Personal: add it to your account, then DM the bot `subscribe`.
+- `/status` shows the current level. `/unsubscribe` stands down.
+
+Requests only View Channels and Send Messages. No message content access.
+```
+
 ## // RUN
 
 ```bash

@@ -13,10 +13,12 @@ import {
 	heartbeatPayload,
 	type LevelChange,
 	levelChangePayload,
+	levelPresenceName,
 	MENTION_INSUFFICIENT_PRIVILEGES,
 	MENTION_UNKNOWN,
 	pingPongLine,
 	SOURCE_URL,
+	SUBSCRIBE_COMMAND_DESCRIPTION,
 } from "./copy.js";
 
 describe("alertPayload", () => {
@@ -247,6 +249,7 @@ describe("user-facing strings", () => {
 		MENTION_UNKNOWN,
 		MENTION_INSUFFICIENT_PRIVILEGES,
 		GUILD_BOT_ABSENT,
+		SUBSCRIBE_COMMAND_DESCRIPTION,
 		guildCannotPost("100000000000000001"),
 		blockedNotice("100000000000000001", "Example Guild"),
 		dmStatusReport({ subscribed: true, lastAlert: null, currentLevel: 1 }),
@@ -262,6 +265,8 @@ describe("user-facing strings", () => {
 		alertPayload({ title: "x", link: "y", pubDate: "z" }),
 		heartbeatPayload(2),
 		heartbeatPayload(null),
+		levelPresenceName(null, null, ""),
+		levelPresenceName(2, null, ""),
 	].join("\n\n");
 
 	it("contains no exclamation points", () => {
@@ -309,5 +314,34 @@ describe("heartbeatPayload", () => {
 
 	it("renders unknown when level is null", () => {
 		expect(heartbeatPayload(null)).toContain("Current level: unknown");
+	});
+});
+
+describe("levelPresenceName", () => {
+	const now = Date.parse("2026-01-01T12:00:00.000Z");
+	const recent = "2026-01-01T11:45:00.000Z";
+	const expired = "2026-01-01T11:00:00.000Z";
+	const future = "2026-01-01T12:01:00.000Z";
+
+	it("does not invent a level before the first observation", () => {
+		expect(levelPresenceName(null, null, recent, now)).toContain("AWAITING DATA");
+	});
+
+	it("expires upstream data at one hour even when the last poll was recent", () => {
+		const fresh = levelPresenceName(2, expired, recent, now - 1);
+		expect(fresh).toContain("LEVEL 2");
+		expect(fresh).not.toContain("STALE DATA");
+		expect(levelPresenceName(2, expired, recent, now)).toContain("LEVEL 2 (STALE DATA)");
+	});
+
+	it.each([
+		{ asOf: null, checkedAt: recent },
+		{ asOf: "not-a-timestamp", checkedAt: recent },
+		{ asOf: future, checkedAt: recent },
+		{ asOf: recent, checkedAt: "not-a-timestamp" },
+		{ asOf: recent, checkedAt: expired },
+		{ asOf: recent, checkedAt: future },
+	])("marks untrustworthy or expired timestamps as stale: %j", ({ asOf, checkedAt }) => {
+		expect(levelPresenceName(2, asOf, checkedAt, now)).toContain("STALE DATA");
 	});
 });

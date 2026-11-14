@@ -13,6 +13,7 @@ Discord bot for the [Apocalypse Early Warning System](https://ews.kylemcdonald.n
 
 - Polls the upstream RSS (`/rss.xml`, level-5 incidents) and the upstream dashboard JSON (`current.emergencyLevel` 1..5) every 30 min.
 - Announces every level transition. `Notice → ELEVATED → WARNING → ATTENTION` rising; `Stand-down` falling.
+- Bot activity shows the last observed level, such as `Watching EWS: LEVEL 2`, at startup and after each dashboard poll. Before the first reading it shows `AWAITING DATA`. Readings or cached observations at least an hour old show `STALE DATA`, as do missing, invalid, or future timestamps. The online indicator still means connected. No privileged Presence intent is needed.
 - Slash commands `/subscribe [channel]` `/unsubscribe` `/status` `/help` — guild, DM, private-channel, user-install. In a guild, `/subscribe` and `/unsubscribe` require ManageGuild.
 - `@-mention` in a guild channel with the same words (ManageGuild for state changes).
 - DM the bot direct: same words, no mention needed.

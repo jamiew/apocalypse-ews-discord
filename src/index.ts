@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { DB } from "./db.js";
-import { createClient, fanOutAlert, fanOutLevelChange } from "./discord.js";
+import { createClient, fanOutAlert, fanOutLevelChange, updateLevelPresence } from "./discord.js";
 import { loadEnv } from "./env.js";
 import { sendHeartbeat } from "./heartbeat.js";
 import { pollLevelOnce } from "./level-poller.js";
@@ -76,6 +76,8 @@ async function main() {
 			if (!change) levelLog.debug("level poll: no change");
 		} catch (err) {
 			levelLog.error("level poll error", { err });
+		} finally {
+			updateLevelPresence(client, db);
 		}
 	});
 

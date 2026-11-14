@@ -5,6 +5,9 @@ import { escapeMarkdown } from "discord.js";
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
 export const INSTALL_URL = "https://jamiew.github.io/apocalypse-ews-discord/";
 
+export const SUBSCRIBE_COMMAND_DESCRIPTION =
+	"Receive emergency-level changes (this channel in a server, or you in a DM).";
+
 export const GUILD_WELCOME = [
 	"APOCALYPSE EWS ONLINE.",
 	"",
@@ -71,6 +74,21 @@ export function heartbeatPayload(currentLevel: number | null): string {
 		`Current level: ${formatLevel(currentLevel)}. Nothing to report.`,
 		`<${SOURCE_URL}>`,
 	].join("\n");
+}
+
+export function levelPresenceName(
+	currentLevel: number | null,
+	asOf: string | null,
+	checkedAt: string,
+	now = Date.now(),
+): string {
+	if (currentLevel == null) return "EWS: AWAITING DATA";
+	const freshAfter = now - 60 * 60 * 1000;
+	const sourceTime = Date.parse(asOf ?? "");
+	const checkedTime = Date.parse(checkedAt);
+	const fresh =
+		sourceTime > freshAfter && sourceTime <= now && checkedTime > freshAfter && checkedTime <= now;
+	return fresh ? `EWS: LEVEL ${currentLevel}` : `EWS: LEVEL ${currentLevel} (STALE DATA)`;
 }
 
 export const ANNUAL_REMINDER =

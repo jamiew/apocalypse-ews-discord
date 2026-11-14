@@ -358,7 +358,7 @@ async function onGuildCreate(guild: Guild, deps: BotDeps, client: Client): Promi
 		id: c.id,
 		type: c.type,
 		position: "position" in c ? (c.position ?? 0) : 0,
-		canSend: c.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages) === true,
+		canSend: botCanPost(c.permissionsFor(me), c.isThread()),
 	}));
 	const sys = guild.systemChannel;
 	const sysCandidate = sys ? (candidates.find((c) => c.id === sys.id) ?? null) : null;
@@ -819,7 +819,7 @@ async function handleDM(message: Message, deps: BotDeps): Promise<void> {
 }
 
 async function handleMention(message: Message, deps: BotDeps, botUserId: Snowflake): Promise<void> {
-	if (!message.guildId || !message.channelId) return;
+	if (!message.inGuild()) return;
 	const userId = message.author.id;
 	const guildId = message.guildId;
 	const channelId = message.channelId;
@@ -844,8 +844,17 @@ async function handleMention(message: Message, deps: BotDeps, botUserId: Snowfla
 		stripped,
 	});
 
+	const me = message.guild.members.me;
+	const perms = me ? message.channel.permissionsFor(me) : null;
+	// Without Send Messages the bot can neither confirm nor deliver; a subscription here would be dead.
+	if (!botCanPost(perms, message.channel.isThread())) {
+		log.debug("mention ignored: cannot post", { guildId, channelId });
+		return;
+	}
+	// Replies need Read Message History, which the server invite does not request.
+	const canReply = perms?.has(PermissionFlagsBits.ReadMessageHistory) === true;
 	const reply = async (content: string) => {
-		await message.reply(content);
+		await (canReply ? message.reply(content) : message.channel.send(content));
 		deps.db.recordEvent({ kind: "mention_out", guildId, channelId, userId, payload: { content } });
 		log.debug("mention out", { guildId, channelId, userId, content });
 	};

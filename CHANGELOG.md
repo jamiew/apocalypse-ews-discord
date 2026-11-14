@@ -7,6 +7,9 @@
 - Dead subscriptions now unsubscribe themselves and record a `subscriber_pruned` event. This happens when the bot leaves a server, at startup for servers it is no longer in, and on send errors that can't succeed again: Unknown Channel, Unknown User, Missing Access outside a server the bot belongs to, and DMs with no mutual server. Each pass logs one INFO summary instead of an ERROR per recipient. On November 14, 2026, 87 of 217 deliveries failed; 79 of them could never succeed, and most had failed every alert since at least October.
 - `/subscribe` in a server now refuses when the bot is not a member (a user-installed command) or can't View Channel + Send Messages in the target channel, and says how to fix it. Previously it replied SUBSCRIBED to channels it could never post to.
 - Startup logs a subscription audit: reachable channels, channels missing permissions, and DM count.
+- @-mention commands fall back to a plain message when the bot lacks Read Message History, which Discord requires for replies and the server invite does not request. Previously those mentions failed with Missing Permissions. Mentions in channels where the bot can't post are ignored instead of creating a subscription that can never deliver.
+- The welcome message picks a channel the bot can both view and post in.
+- The website explains that a personal install delivers by DM only.
 - Discord app Guild Install now requests the `bot` scope with View Channel + Send Messages. Before, "Add App" added only commands to a server, and the bot never joined.
 
 ## 2026-11-08

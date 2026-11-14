@@ -219,6 +219,22 @@ describe("DB", () => {
 			);
 		});
 
+		it("finds the latest blocked notice for one channel, success or failure", () => {
+			expect(db.lastBlockedNoticeTs("c1")).toBeNull();
+			db.recordEvent({
+				kind: "blocked_notice_fail",
+				channelId: "c1",
+				payload: { err: new Error("x") },
+			});
+			db.recordEvent({
+				kind: "blocked_notice_ok",
+				channelId: "c2",
+				payload: { route: "channel", noticeChannelId: "c9" },
+			});
+			expect(db.lastBlockedNoticeTs("c1")).not.toBeNull();
+			expect(db.lastBlockedNoticeTs("c3")).toBeNull();
+		});
+
 		it("countEvents filters by kind and optional since timestamp", () => {
 			db.recordEvent({ kind: "command", payload: { name: "subscribe", options: [] } });
 			db.recordEvent({ kind: "command", payload: { name: "status", options: [] } });

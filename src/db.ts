@@ -35,6 +35,8 @@ export type EventKind =
 	| "heartbeat_skipped"
 	| "guild_welcome_failed"
 	| "subscriber_pruned"
+	| "blocked_notice_ok"
+	| "blocked_notice_fail"
 	| "error";
 
 export interface EventRecord {
@@ -127,6 +129,8 @@ export interface EventPayloadByKind {
 		err?: unknown;
 	};
 	subscriber_pruned: { kind: SubscriberKind; reason: PruneReason; err?: unknown };
+	blocked_notice_ok: { route: "channel" | "owner_dm"; noticeChannelId: Snowflake | null };
+	blocked_notice_fail: { err: unknown };
 	error: { op: string; command?: string; err: unknown };
 }
 
@@ -403,6 +407,18 @@ export class DB {
 				`SELECT ts FROM events WHERE kind = ? ORDER BY id DESC LIMIT 1`,
 			)
 			.get(kind);
+		return row?.ts ?? null;
+	}
+
+	/** Latest blocked-delivery notice attempt for a subscribed channel, or null if none. */
+	lastBlockedNoticeTs(channelId: Snowflake): string | null {
+		const row = this.db
+			.query<{ ts: string }, [Snowflake]>(
+				`SELECT ts FROM events
+         WHERE kind IN ('blocked_notice_ok', 'blocked_notice_fail') AND channel_id = ?
+         ORDER BY id DESC LIMIT 1`,
+			)
+			.get(channelId);
 		return row?.ts ?? null;
 	}
 

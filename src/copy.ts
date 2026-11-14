@@ -1,3 +1,5 @@
+import { escapeMarkdown } from "discord.js";
+
 // Tone: deadpan, technical, no emojis, no exclamation points. Wryness from framing.
 
 export const SOURCE_URL = "https://ews.kylemcdonald.net";
@@ -217,12 +219,74 @@ function formatLevel(level: number | null): string {
 	return level == null ? "unknown" : String(level);
 }
 
-export function statusLine(args: {
+function statusHeader(currentLevel: number | null, lastAlert: LastAlert): string {
+	return [
+		"STATUS REPORT.",
+		`Level: ${formatLevel(currentLevel)}. Last level 5 alert: ${formatLastAlert(lastAlert)}.`,
+	].join("\n");
+}
+
+export function dmStatusReport(args: {
 	subscribed: boolean;
 	lastAlert: LastAlert;
 	currentLevel: number | null;
 }): string {
-	return `${args.subscribed ? "SUBSCRIBED" : "NOT SUBSCRIBED"}. Level: ${formatLevel(args.currentLevel)}. Last level 5 alert: ${formatLastAlert(args.lastAlert)}.`;
+	return [
+		statusHeader(args.currentLevel, args.lastAlert),
+		args.subscribed
+			? "DM alerts: SUBSCRIBED. Send `unsubscribe` to stop."
+			: "DM alerts: NOT SUBSCRIBED. Send `subscribe` to opt in.",
+	].join("\n");
+}
+
+/** A subscribed channel in one server; canPost null when the bot cannot check. */
+export interface SubscribedChannel {
+	id: string;
+	canPost: boolean | null;
+}
+
+const NEEDS_POST_PERMISSIONS = "The bot needs View Channel and Send Messages";
+
+export function guildStatusReport(args: {
+	channelId: string | null;
+	channels: readonly SubscribedChannel[];
+	lastAlert: LastAlert;
+	currentLevel: number | null;
+}): string {
+	const here = args.channels.find((c) => c.id === args.channelId);
+	const others = args.channels.filter((c) => c.id !== args.channelId);
+	const hereLine = !here
+		? "This channel: NOT SUBSCRIBED. `/subscribe` here to receive alerts."
+		: here.canPost === false
+			? `This channel: SUBSCRIBED, BLOCKED. ${NEEDS_POST_PERMISSIONS} here.`
+			: "This channel: SUBSCRIBED. `/unsubscribe` to stand down.";
+	const blocked = others.some((c) => c.canPost === false);
+	const othersLine =
+		others.length === 0
+			? here
+				? null
+				: "No channel in this server receives alerts."
+			: `Other alert channels here: ${others
+					.map((c) => `<#${c.id}>${c.canPost === false ? " (BLOCKED)" : ""}`)
+					.join(", ")}.`;
+	return [
+		statusHeader(args.currentLevel, args.lastAlert),
+		hereLine,
+		othersLine,
+		blocked ? `${NEEDS_POST_PERMISSIONS} in blocked channels.` : null,
+	]
+		.filter((line) => line !== null)
+		.join("\n");
+}
+
+export function blockedNotice(channelId: string, guildName?: string): string {
+	const where = guildName === undefined ? "this server" : `**${escapeMarkdown(guildName)}**`;
+	return [
+		"APOCALYPSE EWS. DELIVERY BLOCKED.",
+		`Alerts for ${where} go to <#${channelId}>, but the bot cannot post there.`,
+		"To fix: give the bot View Channel and Send Messages in that channel, or run `/subscribe` in a channel where it can post.",
+		"No longer needed: run `/unsubscribe` in that channel, or remove the app in Server Settings → Integrations → Apocalypse EWS → Remove.",
+	].join("\n");
 }
 
 export function pingPongLine(args: {

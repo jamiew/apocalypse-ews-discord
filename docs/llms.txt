@@ -1,0 +1,15 @@
+# Apocalypse EWS Discord bot
+
+> A free, independent Discord bot that relays Apocalypse Early Warning System level changes to subscribed server channels and DMs.
+
+The bot checks every 30 minutes and reports changes in either direction on a 1–5 scale. Server installs post to subscribed channels; personal installs deliver by DM. Use `/subscribe` and `/unsubscribe` to manage alerts. Occasional service messages and reminders are separate from alerts.
+
+The upstream tracks unusual private-jet activity. This bot is not an official emergency service or a disaster predictor. Screenshots are examples, not live readings; check the upstream for the current level.
+
+## Resources
+
+- [Install and help](https://jamiew.github.io/apocalypse-ews-discord/): Install links, commands, and example messages.
+- [Bot documentation](https://raw.githubusercontent.com/jamiew/apocalypse-ews-discord/main/README.md): Setup, operation, and command reference in Markdown.
+- [Privacy policy](https://jamiew.github.io/apocalypse-ews-discord/privacy.html): Stored data and deletion requests.
+- [Terms of use](https://jamiew.github.io/apocalypse-ews-discord/terms.html): Limitations and safety guidance.
+- [Upstream EWS](https://ews.kylemcdonald.net/): Current emergency level and the source project's methodology.

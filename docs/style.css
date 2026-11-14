@@ -63,6 +63,7 @@ body {
 	margin: 0 auto;
 	padding: 8px 8px 24px;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 }
 
@@ -313,15 +314,6 @@ details[open] > summary.dispatch::before {
 }
 .howto li:last-child {
 	margin-bottom: 0;
-}
-
-#config-warning {
-	margin-top: 12px;
-	background: #fdd;
-	border: 1px solid #c33;
-	padding: 8px 10px;
-	font-size: 0.9rem;
-	font-family: var(--mono);
 }
 
 /* Screenshot panel — centred, max-width contained, hover lift. */
